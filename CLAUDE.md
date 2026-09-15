@@ -87,7 +87,7 @@ Reuse before rebuilding. These sibling projects already solve parts of this prob
 | Fonts | Open Sans TTF (Regular/SemiBold/Bold/Italic) | copy from `../BoardReadinessAdvisor/board_readiness/assets/fonts/` |
 | Logo | `TEN_Capital_logo_footer.png` | copy from `../TEN_Capital_logo_footer.png` into `assets/` |
 | Web app | fastapi, uvicorn[standard], python-multipart | `../ConvictionLadder/web.py` + `index.html` (job API, polling UI), `../deckpager/app.py` |
-| Deployment | Railway, Nixpacks builder | `../deckpager/railway.json`, `Procfile`, pinned `requirements.txt` |
+| Deployment | Railway, Railpack builder | `../deckpager/railway.json`, `Procfile`, pinned `requirements.txt` |
 | Email | Resend REST API via stdlib `urllib` (no SDK) | `../deckpager/src/deckpager/mailer.py`, `../ConvictionLadder/mailer.py` |
 | Tests | pytest, pytest-cov, pypdf, httpx (FastAPI TestClient) | — |
 
@@ -464,6 +464,14 @@ otherwise.
 
 ### Architecture
 
+- `app.py` already exists as a deployable shell. It serves:
+  - the UI, with injected config
+  - the icons, `/favicon.ico`, and `/healthz`
+  - the password gate
+
+  Every `/api/*` route answers 503 until Phase 7 implements it, and
+  `tests/test_app_shell.py` covers the shell. Extend this file rather than replacing it, and
+  keep its gate and health check.
 - `src/icb/pipeline.py` is the only place analysis logic lives. `cli.py` and `app.py` are thin
   wrappers, so the two front ends cannot drift apart.
 - `web/index.html` is the whole UI, with no frontend framework. It already exists as a
@@ -556,7 +564,7 @@ Keep its tokens, components, and copy tone. Wire it to the API; don't restyle it
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/healthz` | Unauthenticated. Returns `{status, auth_enabled, api_key_set, data_dir_persistent, soffice_available, email_enabled}`. With `?deep=1` it also returns `api_key_valid` (via `models.list()`). |
+| GET | `/healthz` | Unauthenticated. Returns `{status, auth_enabled, api_key_set, data_dir_persistent, soffice_available, email_enabled, analysis_available}`. With `?deep=1` it also returns `api_key_valid` (via `models.list()`). |
 | GET | `/` | The UI |
 | GET/POST | `/api/investors` | List returns `[{slug, name, approved_pack: {version, hash} or null}]`; create |
 | GET/PUT | `/api/investors/{slug}/profile` | PUT returns validation questions |
@@ -587,7 +595,8 @@ code category. Tracebacks are never returned.
 ### Security
 
 - **Auth.** HTTP Basic with `APP_USERNAME` / `APP_PASSWORD`, compared in constant time.
-  - If `RAILWAY_ENVIRONMENT` is set and `APP_PASSWORD` is empty, every route except
+  - If the app is on Railway (`RAILWAY_ENVIRONMENT`, `RAILWAY_ENVIRONMENT_NAME` or
+    `RAILWAY_PROJECT_ID` is set) and `APP_PASSWORD` is empty, every route except
     `/healthz`, `/favicon.ico`, and `/public` returns 503 with "Set APP_PASSWORD before using this
     deployment." The app never runs open on Railway.
   - `/public` holds brand assets only (icons, manifest, fonts). It stays unauthenticated so
@@ -609,20 +618,25 @@ code category. Tracebacks are never returned.
 
 ### Known platform limits
 
-- The Nixpacks image has no LibreOffice. On Railway, `.ppt` uploads are rejected with a clear
+- The Railpack image has no LibreOffice. On Railway, `.ppt` uploads are rejected with a clear
   message, and `.pptx` decks are ingested from text, tables, and speaker notes without slide
   images. The UI states this next to the upload control when `soffice_available` is false.
 
 ### Deployment files
 
-- `railway.json`: copy `../deckpager/railway.json`. Change the start command to
-  `uvicorn app:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 120` (add `PYTHONPATH=src`),
-  and keep `healthcheckPath: /healthz`.
-- `Procfile`: the same start command.
+- `railway.json`: already present.
+  - Builder `RAILPACK`, Railway's current default. Nixpacks is deprecated, and Railpack could
+    not build the repository before a Python entry point existed.
+  - Start command `python app.py`, which runs uvicorn on `$PORT` with proxy headers and a
+    120s keep-alive.
+  - `healthcheckPath: /healthz`, `numReplicas: 1`.
+  - Once `src/icb` exists, make it importable, e.g. `sys.path` in `app.py` or an installed
+    package. Do not add a shell-dependent `PYTHONPATH=src` prefix.
+- `Procfile`: `web: python app.py`.
 - `requirements.txt`: exact pins matching `../deckpager/requirements.txt`, plus `pyyaml`
   and `httpx` pinned. Never use loose `>=` bounds (a floating major version broke a sibling
   deploy).
-- `.python-version`: copy from `../ConvictionLadder/.python-version`.
+- `.python-version`: `3.12` (matches `../ConvictionLadder`).
 
 ### Deployment runbook (Phase 8)
 
@@ -670,7 +684,7 @@ code category. Tracebacks are never returned.
   - an override without a reason is rejected
   - the API key value never appears in any response body, header, or log record
     (set a sentinel key and scan)
-  - the served `/` has `{{CONFIG_JSON}}` replaced, contains no `{{` and no preview-mode
+  - the served `/` has `{{CONFIG_JSON}}` replaced, carries no preview-mode
     config, and contains no email address other than `ICB_REPORT_EMAIL_TO`
   - an injected config value containing `</script>` cannot break out of the script tag
   - icons, following `../EarlyTractionValidation/tests/test_favicon.py`:

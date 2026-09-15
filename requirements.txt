@@ -1,0 +1,7 @@
+# Railway (Railpack) installs from this file. Versions are PINNED, matching
+# ../deckpager/requirements.txt; loose bounds once pulled a breaking major into production.
+# Phase 7 adds the analysis dependencies (anthropic, pydantic, reportlab, ...) with exact pins.
+
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32
