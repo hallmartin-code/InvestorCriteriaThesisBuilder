@@ -122,7 +122,7 @@ InvestorCriteriaThesisBuilder/
 ├── src/icb/
 │   ├── cli.py  config.py  errors.py  cache.py
 │   ├── pipeline.py             # shared core (build, approve, screen, decide, render); CLI and web both call it
-│   ├── profile/   models.py  intake.py  validate.py      # §6
+│   ├── profile/   models.py  validate.py  store.py  intake.py      # §6
 │   ├── criteria/  models.py  build.py  approve.py  revise.py  prompts.py   # §7
 │   ├── ingest/    router.py  pdf.py  pptx.py  legacy_ppt.py  notes.py
 │   ├── screen/    models.py  extract.py  prompts.py  decision.py  log.py    # §8–§10
@@ -137,7 +137,9 @@ Per-investor working data, all confidential:
 
 ```
 investors/<slug>/
-├── profile.yaml
+├── investor.json               # {slug, name, created_at}
+├── profile.yaml                # server-normalized profile document (§15, Screens 2)
+├── notes/                      # uploaded thesis materials (.pdf/.docx/.md/.txt, content-checked)
 ├── criteria/v1.draft.json  v1.approved.json  v1.pdf  CHANGELOG.md
 ├── decisions.jsonl             # append-only screening log
 ├── outcomes.csv                # investor-maintained portfolio outcomes
@@ -468,7 +470,9 @@ otherwise.
   - the UI, with injected config
   - the icons, `/favicon.ico`, and `/healthz`
 
-  Every `/api/*` route answers 503 until Phase 7 implements it, and
+  The investor list/create and profile routes are live (`src/icb/profile/`,
+  `tests/test_profile_api.py`). Every other `/api/*` route answers 503 until Phase 7
+  implements it, and
   `tests/test_app_shell.py` covers the shell. Extend this file rather than replacing it, and
   keep its health check.
 - `src/icb/pipeline.py` is the only place analysis logic lives. `cli.py` and `app.py` are thin
@@ -479,11 +483,27 @@ otherwise.
 ### Screens
 
 1. **Investors**: list, select, or create an investor (slug + display name).
-2. **Profile**: a form for every §6 field.
-   - Each field has a status selector: provided / no preference / not provided.
-   - Thesis-notes upload (.pdf/.docx/.md/.txt).
-   - "Validate" lists missing inputs as named questions; the build button stays disabled
-     until none remain.
+2. **Investor criteria** (`#criteria` tab, already built in the prototype): the §6 intake form.
+   - Sections: investor and capital, objectives, track record, screening filters, thesis
+     notes.
+   - **Status per field, without a separate selector.**
+     - A filled field is `provided`; an empty one is `not_provided`.
+     - A **No preference** toggle (Tier 2 fields and thesis notes only) makes a field
+       `no_preference` and disables its controls.
+     - Prior investments need complete rows, or the explicit "No prior investments"
+       checkbox, stored as `affirmed_none: true`.
+   - **Live questions panel.** It lists every `not_provided` input as a named question;
+     clicking one jumps to the field.
+   - **Consistency checks** in the same panel: min > max, check size above capital or round
+     size, ownership outside 0–100%, implausible years, unreadable amounts. The server must
+     repeat every check; the client's are a convenience.
+   - **Save.** `POST /api/investors` for a new investor, then `PUT …/profile`, then
+     `POST …/profile/notes` for attached files.
+   - **Other actions.** "Download JSON" exports the same document. A `localStorage` draft is
+     a per-browser convenience only; the volume is the record.
+   - **Document shape:** `{schema_version: 1, slug, display_name, updated_at, fields: {<§6 key>:
+     {status, value, source: "intake", affirmed_none?}}}`. Amounts are integer USD. Ranges are
+     `{min_usd, max_usd}` or `{min, max}`. `profile/models.py` must accept exactly this shape.
 3. **Criteria Pack**:
    - "Build draft" runs as a job.
    - The draft shows thesis, hard criteria, weights with rationales, rubrics, deal-breakers,
@@ -518,6 +538,7 @@ Keep its tokens, components, and copy tone. Wire it to the API; don't restyle it
   - **result**: decision, rule sentence, score / coverage / criteria stats, PDF and JSON
     downloads, inline preview, "Record decision" form with an override reason
   - **error**: one sentence and "Try again"
+  - **criteria**: the Investor criteria tab (Screens 2), reached through the brand-row nav
 - Client-side validation that mirrors the server's type and size limits.
 - The no-volume banner.
 
@@ -556,8 +577,8 @@ Keep its tokens, components, and copy tone. Wire it to the API; don't restyle it
   - Keep: a keyboard-reachable file input, visible focus, `aria-live` progress, focus moving
     to the heading on each view change, reduced-motion support, and AA contrast (footer text
     uses `--ink-500`, not `--ink-600`).
-- **Other screens.** Investors, Profile, Criteria Pack, and Review reuse the same card, field,
-  chip, button, panel, and status components. Add a nav in the brand row when they are built.
+- **Other screens.** Criteria Pack review/approval and Review reuse the same card, field,
+  chip, button, panel, and status components. Add them to the existing brand-row nav.
 
 ### API
 
@@ -565,8 +586,9 @@ Keep its tokens, components, and copy tone. Wire it to the API; don't restyle it
 |---|---|---|
 | GET | `/healthz` | Returns `{status, api_key_set, data_dir_persistent, soffice_available, email_enabled, analysis_available}`. With `?deep=1` it also returns `api_key_valid` (via `models.list()`). |
 | GET | `/` | The UI |
-| GET/POST | `/api/investors` | List returns `[{slug, name, approved_pack: {version, hash} or null}]`; create |
-| GET/PUT | `/api/investors/{slug}/profile` | PUT returns validation questions |
+| GET/POST | `/api/investors` | List returns `[{slug, name, approved_pack: {version, hash} or null}]` (always `null` until Phase 2). Create takes `{slug, name}` and returns 201, or 409 if the slug exists |
+| GET/PUT | `/api/investors/{slug}/profile` | The profile document from Screens 2. PUT validates server-side and returns `{saved_at, questions: [{field, question}], issues: [...]}`. GET before any save returns an empty document with the investor's name |
+| POST | `/api/investors/{slug}/profile/notes` | Multipart `files` (.pdf/.docx/.md/.txt) for thesis notes |
 | POST | `/api/investors/{slug}/criteria/build` | Returns `{job_id}` |
 | GET/PUT | `/api/investors/{slug}/criteria/draft` | Review / answer open questions |
 | POST | `/api/investors/{slug}/criteria/approve` | 409 while open questions remain |

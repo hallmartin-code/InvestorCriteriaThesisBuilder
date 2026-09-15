@@ -115,12 +115,43 @@
   }
 
   /* brand lockup */
+  body.is-wide .stage{ max-width: 780px; }
+
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
   .brand{
     display:flex;
     align-items:center;
     gap:12px;
-    margin-bottom: 28px;
     padding-left: 4px;
+  }
+  .nav{
+    display:flex;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--navy-700);
+    border-radius: 12px;
+    background: rgba(11,21,38,0.6);
+  }
+  .nav a{
+    padding: 8px 14px;
+    border-radius: 8px;
+    color: var(--ink-300);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .nav a:hover{ color: var(--ink-100); }
+  .nav a[aria-current="page"]{
+    background: var(--navy-800);
+    color: var(--ink-100);
+    box-shadow: inset 0 0 0 1px var(--navy-700);
   }
   .brand-mark{ width:34px; height:34px; flex-shrink:0; }
   .brand-word{
@@ -151,6 +182,7 @@
       inset 0 1px 0 rgba(255,255,255,0.03);
     position:relative;
     overflow:hidden;
+    overflow:clip; /* clip, not hidden, so the criteria action bar can stay sticky */
   }
   .card::after{
     content:"";
@@ -632,6 +664,113 @@
     text-transform:uppercase;
   }
 
+  /* investor criteria form */
+  .pack a{ color: var(--teal); text-underline-offset: 3px; }
+  .field{ display:block; min-width:0; }
+  .field-label small{
+    font-family:'Inter', sans-serif;
+    text-transform:none;
+    letter-spacing:0;
+    font-size: 11px;
+    color: var(--ink-500);
+  }
+  .grid{ display:grid; gap: 14px; }
+  .grid.tight{ gap: 10px; }
+  .grid-2{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-3{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .span-2{ grid-column: span 2; }
+  .form-section{
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid var(--navy-700);
+    display:grid;
+    gap: 18px;
+  }
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; gap: 12px; }
+  .section-title{ margin:0; font-family:'Sora', sans-serif; font-weight:700; font-size:16px; }
+  .section-tag{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-500);
+  }
+  .field-row{ display:flex; align-items:center; justify-content:space-between; gap: 10px; margin-bottom: 6px; }
+  .field-row .field-label{ margin-bottom: 0; }
+  .np{ display:inline-flex; align-items:center; gap: 6px; font-size: 12px; color: var(--ink-300); cursor:pointer; white-space:nowrap; }
+  .np input{ accent-color: var(--teal); }
+  .field[data-status="no_preference"] .field-label:first-child{ color: var(--teal); }
+  input:disabled, select:disabled, textarea:disabled{ opacity: .45; cursor: not-allowed; }
+  input[aria-invalid="true"]{ border-color: var(--coral); }
+  input[type="file"]{ font-size: 13px; color: var(--ink-300); }
+  input[type="file"]::file-selector-button{
+    margin-right: 10px; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid var(--navy-700); background: var(--navy-950); color: var(--ink-100);
+    font: inherit; cursor: pointer;
+  }
+  .money, .unit{ position:relative; display:block; }
+  .money::before{
+    content:"$"; position:absolute; left:14px; top:50%; transform:translateY(-50%);
+    color: var(--ink-500); font-size: 14px; pointer-events:none;
+  }
+  .money input{ padding-left: 26px; }
+  .unit::after{
+    content: attr(data-unit); position:absolute; right:14px; top:50%; transform:translateY(-50%);
+    color: var(--ink-500); font-size: 13px; pointer-events:none;
+  }
+  .unit input{ padding-right: 46px; }
+  .chips{ display:flex; flex-wrap:wrap; gap: 8px; }
+  .chip{ position:relative; }
+  .chip input{ position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; }
+  .chip span{
+    display:block; padding: 8px 12px; border-radius: 999px;
+    border: 1px solid var(--navy-700); font-size: 13px; color: var(--ink-300);
+  }
+  .chip input:checked + span{ border-color: var(--teal); color: var(--ink-100); background: rgba(53,190,187,0.10); }
+  .chip input:focus-visible + span{ outline: 2px solid var(--teal); outline-offset: 2px; }
+  .chip input:disabled + span{ opacity: .45; }
+  .repeat{ display:grid; gap: 10px; }
+  .repeat:empty{ display:none; }
+  .repeat-row{ padding: 14px; border-radius: 12px; border: 1px solid var(--navy-700); background: var(--navy-950); }
+  .row-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; }
+  .row-title{ font-family:'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-500); }
+  .add-btn{
+    justify-self:start; margin-top: 10px; padding: 10px 14px; border-radius: 10px;
+    border: 1px dashed var(--navy-700); background: none; color: var(--ink-300);
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .add-btn:hover{ border-color: var(--teal); color: var(--ink-100); }
+  .questions{
+    margin-top: 28px; padding: 18px; border-radius: 14px;
+    border: 1px solid rgba(243,162,42,0.35); background: rgba(243,162,42,0.07);
+  }
+  .questions[data-state="complete"]{ border-color: rgba(53,190,187,0.35); background: rgba(53,190,187,0.07); }
+  .questions h2{ margin: 0 0 4px; font-family:'Sora', sans-serif; font-size: 15px; }
+  .questions ol, .questions ul{ margin: 12px 0 0; padding-left: 20px; display:grid; gap: 6px; font-size: 13.5px; line-height: 1.5; color: var(--ink-300); }
+  .questions h3{ margin: 16px 0 0; font-size: 12px; font-family:'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--coral-soft); }
+  .q-link{
+    background:none; border:0; padding:0; color:inherit; font:inherit; text-align:left; cursor:pointer;
+    text-decoration: underline; text-decoration-color: var(--navy-700); text-underline-offset: 3px;
+  }
+  .q-link:hover{ color: var(--ink-100); text-decoration-color: var(--amber); }
+  .form-actions{
+    position: sticky; bottom: 12px; z-index: 2;
+    display:flex; flex-wrap:wrap; align-items:center; gap: 10px;
+    margin-top: 22px; padding: 14px; border-radius: 14px;
+    border: 1px solid var(--navy-700); background: rgba(16,30,51,0.95);
+    box-shadow: 0 -10px 30px -12px rgba(0,0,0,0.5);
+  }
+  .form-actions .cta{ margin-top:0; width:auto; flex: 1 1 200px; padding: 13px 18px; font-size: 14px; }
+  .form-actions .btn{ flex: 0 1 auto; }
+  .form-actions .status{ flex-basis: 100%; margin-top: 2px; }
+  .draft-note{ flex-basis: 100%; margin: 0; font-size: 12px; color: var(--ink-500); }
+
+  @media (max-width: 600px){
+    .grid-2, .grid-3{ grid-template-columns: 1fr; }
+    .span-2{ grid-column: auto; }
+    .form-actions{ position: static; }
+  }
+
   @media (max-width: 480px){
     .card{ padding: 32px 22px 28px; }
     .card::after{ left:22px; right:22px; }
@@ -656,6 +795,7 @@
     No volume attached. Profiles, criteria packs and decision logs will be lost on redeploy.
   </div>
 
+  <div class="topbar">
   <div class="brand">
     <svg class="brand-mark" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path d="M50 6 C64 6 74 16 74 16" stroke="var(--amber)" stroke-width="11" stroke-linecap="round" fill="none"/>
@@ -666,6 +806,11 @@
       <circle cx="22" cy="68" r="11" fill="var(--coral)"/>
     </svg>
     <div class="brand-word">Ten Capital<span>Network</span></div>
+  </div>
+  <nav class="nav" aria-label="Sections">
+    <a href="#screen" data-nav="screen">Screen a deck</a>
+    <a href="#criteria" data-nav="criteria">Investor criteria</a>
+  </nav>
   </div>
 
   <main class="card" id="card">
@@ -816,6 +961,198 @@
       <button class="cta" type="button" id="retry">Try again</button>
     </section>
 
+    <!-- ── View: investor criteria ──────────────────────────────── -->
+    <section data-view="criteria" aria-labelledby="criteria-title" hidden>
+      <div class="eyebrow">Investor criteria</div>
+      <h1 id="criteria-title">Investor<span class="arrow" aria-hidden="true">&rarr;</span><span class="to">Screening Criteria</span></h1>
+      <p class="lede">Record the investor's own inputs. They become the standard every deck is screened against, so nothing is assumed: leave a field empty if it isn't known yet, or mark it <b>No preference</b> to deliberately not apply it.</p>
+
+      <div class="grid grid-2">
+        <label class="field">
+          <span class="field-label">Investor</span>
+          <select id="c-investor"><option value="">New investor</option></select>
+        </label>
+      </div>
+
+      <form id="criteria-form" novalidate>
+        <div class="field" style="margin-top:14px">
+          <label class="field-label" for="c-name">Investor name</label>
+          <input type="text" id="c-name" autocomplete="off">
+          <p class="hint" id="c-slug-hint">The profile ID is created from the name.</p>
+        </div>
+
+        <!-- 1 · Investor and capital -->
+        <div class="form-section" role="group" aria-labelledby="sec-capital">
+          <div class="section-head"><h2 class="section-title" id="sec-capital">1 · Investor and capital</h2><span class="section-tag">Required</span></div>
+
+          <div class="field" data-field="investor_type" role="radiogroup" aria-labelledby="l-type">
+            <span class="field-label" id="l-type">Investor type</span>
+            <div class="radio-row">
+              <label class="radio"><input type="radio" name="c-type" value="angel" id="c-type-angel"><span>Angel</span></label>
+              <label class="radio"><input type="radio" name="c-type" value="family_office"><span>Family office</span></label>
+              <label class="radio"><input type="radio" name="c-type" value="fund"><span>Fund</span></label>
+              <label class="radio"><input type="radio" name="c-type" value="corporate"><span>Corporate</span></label>
+            </div>
+          </div>
+
+          <div class="grid grid-2">
+            <div class="field" data-field="capital_available_usd">
+              <label class="field-label" for="c-capital">Capital available</label>
+              <span class="money"><input type="text" id="c-capital" inputmode="decimal" data-money placeholder="e.g. 2.5M"></span>
+            </div>
+            <div class="field" data-field="check_size">
+              <span class="field-label">Check size</span>
+              <div class="grid grid-2 tight">
+                <span class="money"><input type="text" id="c-check-min" inputmode="decimal" data-money placeholder="Minimum" aria-label="Minimum check size"></span>
+                <span class="money"><input type="text" id="c-check-max" inputmode="decimal" data-money placeholder="Maximum" aria-label="Maximum check size"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="field" data-field="follow_on_reserve_policy">
+            <div class="field-row"><label class="field-label" for="c-reserves">Follow-on reserve policy</label><label class="np"><input type="checkbox" data-np> No preference</label></div>
+            <input type="text" id="c-reserves">
+          </div>
+        </div>
+
+        <!-- 2 · Objectives -->
+        <div class="form-section" role="group" aria-labelledby="sec-objectives">
+          <div class="section-head"><h2 class="section-title" id="sec-objectives">2 · Objectives</h2><span class="section-tag">Required</span></div>
+
+          <div class="field" data-field="return_objective">
+            <label class="field-label" for="c-return">Return objective</label>
+            <textarea id="c-return"></textarea>
+            <div class="grid grid-2 tight" style="margin-top:10px">
+              <label class="field"><span class="field-label">Target multiple <small>optional</small></span><span class="unit" data-unit="×"><input type="text" id="c-multiple" inputmode="decimal" data-number></span></label>
+              <label class="field"><span class="field-label">Target IRR <small>optional</small></span><span class="unit" data-unit="%"><input type="text" id="c-irr" inputmode="decimal" data-number></span></label>
+            </div>
+          </div>
+
+          <div class="field" data-field="liquidity_objective">
+            <label class="field-label" for="c-liquidity">Liquidity objective</label>
+            <textarea id="c-liquidity"></textarea>
+          </div>
+
+          <div class="field" data-field="time_horizon_years">
+            <span class="field-label">Time horizon</span>
+            <div class="grid grid-2 tight">
+              <span class="unit" data-unit="years"><input type="text" id="c-horizon-min" inputmode="decimal" data-number placeholder="Minimum" aria-label="Minimum time horizon in years"></span>
+              <span class="unit" data-unit="years"><input type="text" id="c-horizon-max" inputmode="decimal" data-number placeholder="Maximum (optional)" aria-label="Maximum time horizon in years"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 · Track record -->
+        <div class="form-section" role="group" aria-labelledby="sec-record">
+          <div class="section-head"><h2 class="section-title" id="sec-record">3 · Track record</h2><span class="section-tag">Required</span></div>
+          <div class="field" data-field="prior_investments">
+            <span class="field-label">Prior investments and outcomes</span>
+            <div class="repeat" id="prior-rows"></div>
+            <button class="add-btn" type="button" id="c-add-prior">+ Add an investment</button>
+            <label class="check"><input type="checkbox" id="c-no-prior"><span>No prior investments</span></label>
+          </div>
+        </div>
+
+        <!-- 4 · Screening filters -->
+        <div class="form-section" role="group" aria-labelledby="sec-filters">
+          <div class="section-head"><h2 class="section-title" id="sec-filters">4 · Screening filters</h2><span class="section-tag">Hard criteria</span></div>
+
+          <div class="field" data-field="stages">
+            <div class="field-row"><span class="field-label">Stages</span><label class="np"><input type="checkbox" data-np> No preference</label></div>
+            <div class="chips">
+              <label class="chip"><input type="checkbox" name="c-stages" value="Pre-Seed" id="c-stage-first"><span>Pre-Seed</span></label>
+              <label class="chip"><input type="checkbox" name="c-stages" value="Seed"><span>Seed</span></label>
+              <label class="chip"><input type="checkbox" name="c-stages" value="Series A"><span>Series A</span></label>
+              <label class="chip"><input type="checkbox" name="c-stages" value="Series B"><span>Series B</span></label>
+              <label class="chip"><input type="checkbox" name="c-stages" value="Series C+"><span>Series C+</span></label>
+              <label class="chip"><input type="checkbox" name="c-stages" value="Growth"><span>Growth</span></label>
+            </div>
+          </div>
+
+          <div class="field" data-field="sectors">
+            <div class="field-row"><span class="field-label">Sectors and subsectors</span><label class="np"><input type="checkbox" data-np> No preference</label></div>
+            <div class="repeat" id="sector-rows"></div>
+            <button class="add-btn" type="button" id="c-add-sector">+ Add a sector</button>
+          </div>
+
+          <div class="grid grid-2">
+            <div class="field" data-field="geographies">
+              <div class="field-row"><label class="field-label" for="c-geos">Geographies <small>comma-separated</small></label><label class="np"><input type="checkbox" data-np> No preference</label></div>
+              <input type="text" id="c-geos">
+            </div>
+            <div class="field" data-field="ownership_target_pct">
+              <div class="field-row"><label class="field-label" for="c-ownership">Ownership target</label><label class="np"><input type="checkbox" data-np> No preference</label></div>
+              <span class="unit" data-unit="%"><input type="text" id="c-ownership" inputmode="decimal" data-number></span>
+            </div>
+          </div>
+
+          <div class="field" data-field="round_size">
+            <div class="field-row"><span class="field-label">Round size</span><label class="np"><input type="checkbox" data-np> No preference</label></div>
+            <div class="grid grid-2 tight">
+              <span class="money"><input type="text" id="c-round-min" inputmode="decimal" data-money placeholder="Minimum" aria-label="Minimum round size"></span>
+              <span class="money"><input type="text" id="c-round-max" inputmode="decimal" data-money placeholder="Maximum" aria-label="Maximum round size"></span>
+            </div>
+          </div>
+
+          <div class="field" data-field="instruments_accepted">
+            <div class="field-row"><span class="field-label">Instruments accepted</span><label class="np"><input type="checkbox" data-np> No preference</label></div>
+            <div class="chips">
+              <label class="chip"><input type="checkbox" name="c-instruments" value="SAFE" id="c-instr-first"><span>SAFE</span></label>
+              <label class="chip"><input type="checkbox" name="c-instruments" value="Convertible note"><span>Convertible note</span></label>
+              <label class="chip"><input type="checkbox" name="c-instruments" value="Priced equity"><span>Priced equity</span></label>
+              <label class="chip"><input type="checkbox" name="c-instruments" value="Revenue-based financing"><span>Revenue-based financing</span></label>
+            </div>
+            <input type="text" id="c-instr-other" placeholder="Other instruments, comma-separated" aria-label="Other instruments" style="margin-top:10px">
+          </div>
+
+          <div class="field" data-field="minimum_traction">
+            <div class="field-row"><span class="field-label">Minimum traction</span><label class="np"><input type="checkbox" data-np> No preference</label></div>
+            <div class="grid grid-2 tight">
+              <select id="c-traction-metric" aria-label="Traction metric">
+                <option value="">Choose a metric…</option>
+                <option>Annual recurring revenue (ARR)</option>
+                <option>Monthly recurring revenue (MRR)</option>
+                <option>Revenue, trailing 12 months</option>
+                <option>Paying customers</option>
+                <option>Active users</option>
+                <option>Signed pilots or LOIs</option>
+                <option>Other</option>
+              </select>
+              <input type="text" id="c-traction-threshold" placeholder="Threshold" aria-label="Traction threshold">
+            </div>
+          </div>
+
+          <div class="field" data-field="instant_no_filters">
+            <div class="field-row"><label class="field-label" for="c-instant-no">Instant-no filters <small>one per line</small></label><label class="np"><input type="checkbox" data-np> No preference</label></div>
+            <textarea id="c-instant-no"></textarea>
+          </div>
+        </div>
+
+        <!-- 5 · Thesis notes -->
+        <div class="form-section" role="group" aria-labelledby="sec-notes">
+          <div class="section-head"><h2 class="section-title" id="sec-notes">5 · Thesis notes</h2><span class="section-tag">Materials</span></div>
+          <div class="field" data-field="thesis_notes">
+            <div class="field-row"><label class="field-label" for="c-notes">Existing thesis notes</label><label class="np"><input type="checkbox" data-np> No thesis notes yet</label></div>
+            <textarea id="c-notes" style="min-height:120px"></textarea>
+            <input type="file" id="c-notes-files" multiple accept=".pdf,.docx,.md,.txt" aria-label="Attach thesis materials" style="margin-top:10px">
+            <p class="hint">Attach .pdf, .docx, .md or .txt. Attachments are uploaded when you save and aren't kept in the browser draft.</p>
+          </div>
+        </div>
+
+        <div class="questions" id="c-questions" aria-live="polite"></div>
+
+        <div class="form-actions">
+          <button class="cta" type="submit" id="c-save">Save criteria</button>
+          <button class="btn" type="button" id="c-download">Download JSON</button>
+          <button class="btn" type="button" id="c-clear">Start over</button>
+          <div class="status" id="c-status" hidden></div>
+          <p class="draft-note" id="draft-note">Entries are kept as a draft in this browser.</p>
+        </div>
+      </form>
+
+      <p class="disclosure">This app is open to anyone with the link, so saved investor profiles can be seen by other visitors. Nothing on this form is sent to the Claude API until a Criteria Pack is built.</p>
+    </section>
+
   </main>
 
   <footer>Powered by TEN Capital Network</footer>
@@ -859,12 +1196,32 @@
     pollTimer: null,
     pollErrors: 0,
     clock: null,
-    startedAt: 0
+    startedAt: 0,
+    route: "screen",        // which tab is showing: "screen" or "criteria"
+    screenView: "upload",   // the screening flow's current view, kept while on the criteria tab
+    criteriaSlug: null,     // slug of the saved investor being edited; null for a new one
+    criteriaDirty: false
   };
 
   // ── helpers ──────────────────────────────────────────────────
+  function routeFromHash() {
+    return location.hash === "#criteria" ? "criteria" : "screen";
+  }
+
+  // Screening views go through show(); a job finishing never pulls the user off the criteria tab.
   function show(view, focus = true) {
+    state.screenView = view;
+    if (state.route !== "criteria") render(view, focus);
+  }
+
+  function render(view, focus = true) {
     document.querySelectorAll("[data-view]").forEach((s) => { s.hidden = s.dataset.view !== view; });
+    const criteria = view === "criteria";
+    document.body.classList.toggle("is-wide", criteria);
+    document.querySelectorAll("[data-nav]").forEach((a) => {
+      if (a.dataset.nav === (criteria ? "criteria" : "screen")) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
     if (focus) {
       const heading = document.querySelector(`[data-view="${view}"] h1`);
       if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
@@ -955,6 +1312,7 @@
       setError($("upload-error"), err.message);
     }
 
+    const keepScreen = state.investor && state.investor.slug;
     select.textContent = "";
     if (!state.investors.length) {
       const opt = new Option("No investors yet", "");
@@ -964,20 +1322,35 @@
     } else {
       state.investors.forEach((inv) => select.add(new Option(inv.name, inv.slug)));
       select.disabled = state.investors.length === 1;
+      if (state.investors.some((inv) => inv.slug === keepScreen)) select.value = keepScreen;
     }
     selectInvestor(select.value);
+
+    const cSelect = $("c-investor");
+    cSelect.textContent = "";
+    cSelect.add(new Option("New investor", ""));
+    state.investors.forEach((inv) => cSelect.add(new Option(inv.name, inv.slug)));
+    cSelect.value = state.investors.some((inv) => inv.slug === state.criteriaSlug) ? state.criteriaSlug : "";
   }
 
   function selectInvestor(slug) {
     state.investor = state.investors.find((inv) => inv.slug === slug) || null;
     const chip = $("pack-chip");
     const pack = state.investor && state.investor.approved_pack;
+    const criteriaLink = (label) => {
+      const a = document.createElement("a");
+      a.href = "#criteria";
+      a.textContent = label;
+      return a;
+    };
     if (!state.investor) {
       chip.dataset.state = "none";
-      chip.textContent = "Create an investor profile and approve its criteria before screening.";
+      chip.textContent = "No investors yet. ";
+      chip.append(criteriaLink("Enter investor criteria"));
     } else if (!pack) {
       chip.dataset.state = "none";
-      chip.textContent = "No approved Criteria Pack. Approve one before screening.";
+      chip.textContent = "No approved Criteria Pack yet. ";
+      chip.append(criteriaLink("Review investor criteria"));
     } else {
       chip.dataset.state = "approved";
       chip.textContent = `Criteria Pack v${pack.version} · approved · #${String(pack.hash).slice(0, 8)}`;
@@ -1277,6 +1650,221 @@
     }
   }
 
+  // ── investor criteria: parsing and fields ────────────────────
+  const DRAFT_KEY = "icb.criteria.draft.v1";
+  const CURRENT_YEAR = new Date().getFullYear();
+  const INSTRUMENTS = ["SAFE", "Convertible note", "Priced equity", "Revenue-based financing"];
+  const STAGE_OPTIONS = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+", "Growth"];
+  const OUTCOMES = [["active", "Active"], ["exited", "Exited"], ["written_off", "Written off"], ["unknown", "Unknown"]];
+  const PRIOR_REQUIRED = [["company", "company"], ["year", "year"], ["stage", "stage"], ["sector", "sector"], ["check_usd", "check size"], ["outcome", "outcome"]];
+
+  const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const valid = (n) => typeof n === "number" && Number.isFinite(n);
+  const text = (id) => $(id).value.trim();
+  const lines = (id) => $(id).value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const list = (value) => String(value || "").split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+  const checkedValues = (name) => $$(`input[name="${name}"]:checked`).map((i) => i.value);
+  const setChecked = (name, values) => $$(`input[name="${name}"]`).forEach((i) => { i.checked = (values || []).includes(i.value); });
+
+  function isEmpty(value) {
+    if (value == null || value === "") return true;
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === "object") return Object.values(value).every(isEmpty);
+    return false;
+  }
+
+  // "250000", "$250,000", "250k", "2.5M" -> integer USD; "" -> null; unreadable -> NaN
+  function parseAmount(raw) {
+    const t = String(raw || "").trim();
+    if (!t) return null;
+    const m = t.replace(/[$,\s]/g, "").match(/^(\d+(?:\.\d+)?)([kmb])?$/i);
+    if (!m) return NaN;
+    const scale = { k: 1e3, m: 1e6, b: 1e9 }[(m[2] || "").toLowerCase()] || 1;
+    return Math.round(parseFloat(m[1]) * scale);
+  }
+
+  function parseNumber(raw) {
+    const t = String(raw || "").trim().replace(/[%x×,\s]/gi, "");
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  const amount = (input) => { const n = parseAmount(input.value); return valid(n) ? n : null; };
+  const number = (input) => { const n = parseNumber(input.value); return valid(n) ? n : null; };
+  const formatUSD = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
+  const setAmount = (input, n) => { input.value = valid(n) ? formatUSD(n) : ""; };
+  const setNumber = (input, n) => { input.value = valid(n) ? String(n) : ""; };
+
+  function slugify(name) {
+    return String(name || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  }
+
+  // Repeatable rows. Templates are static strings; saved values are set through .value, never as HTML.
+  const PRIOR_ROW_HTML = `
+    <div class="row-head"><span class="row-title"></span><button class="icon-btn" type="button" data-remove>&times;</button></div>
+    <div class="grid grid-3">
+      <label class="field"><span class="field-label">Company</span><input type="text" data-k="company"></label>
+      <label class="field"><span class="field-label">Year</span><input type="text" inputmode="numeric" maxlength="4" data-k="year" data-number></label>
+      <label class="field"><span class="field-label">Stage</span><select data-k="stage"><option value="">Choose…</option>${STAGE_OPTIONS.map((s) => `<option>${s}</option>`).join("")}</select></label>
+      <label class="field"><span class="field-label">Sector</span><input type="text" data-k="sector"></label>
+      <label class="field"><span class="field-label">Check size</span><span class="money"><input type="text" inputmode="decimal" data-k="check_usd" data-money></span></label>
+      <label class="field"><span class="field-label">Outcome</span><select data-k="outcome"><option value="">Choose…</option>${OUTCOMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></label>
+      <label class="field"><span class="field-label">Multiple <small>optional</small></span><span class="unit" data-unit="×"><input type="text" inputmode="decimal" data-k="multiple" data-number></span></label>
+      <label class="field span-2"><span class="field-label">Lesson <small>optional</small></span><input type="text" data-k="lesson"></label>
+    </div>`;
+
+  const SECTOR_ROW_HTML = `
+    <div class="row-head"><span class="row-title"></span><button class="icon-btn" type="button" data-remove>&times;</button></div>
+    <div class="grid grid-2">
+      <label class="field"><span class="field-label">Sector</span><input type="text" data-k="sector"></label>
+      <label class="field"><span class="field-label">Subsectors <small>comma-separated</small></span><input type="text" data-k="subsectors"></label>
+    </div>`;
+
+  function renumberRows(containerId, label) {
+    $$(`#${containerId} .repeat-row`).forEach((row, i) => {
+      row.querySelector(".row-title").textContent = `${label} ${i + 1}`;
+      row.querySelector("[data-remove]").setAttribute("aria-label", `Remove ${label.toLowerCase()} ${i + 1}`);
+    });
+  }
+
+  function addRow(containerId, html, label, data) {
+    const row = document.createElement("div");
+    row.className = "repeat-row";
+    row.innerHTML = html;
+    Object.entries(data || {}).forEach(([k, v]) => {
+      const el = row.querySelector(`[data-k="${k}"]`);
+      if (!el || v == null) return;
+      if (el.matches("[data-money]")) setAmount(el, v);
+      else el.value = Array.isArray(v) ? v.join(", ") : String(v);
+    });
+    row.querySelector("[data-remove]").addEventListener("click", () => {
+      row.remove();
+      renumberRows(containerId, label);
+      onCriteriaChange();
+    });
+    $(containerId).append(row);
+    renumberRows(containerId, label);
+    return row;
+  }
+
+  const addPriorRow = (data) => addRow("prior-rows", PRIOR_ROW_HTML, "Investment", data);
+  const addSectorRow = (data) => addRow("sector-rows", SECTOR_ROW_HTML, "Sector", data);
+
+  function readRows(containerId, reader) {
+    return $$(`#${containerId} .repeat-row`)
+      .map((row, i) => ({ index: i + 1, data: reader((k) => row.querySelector(`[data-k="${k}"]`)) }))
+      .filter((r) => !isEmpty(r.data));
+  }
+
+  const priorRows = () => readRows("prior-rows", (g) => ({
+    company: g("company").value.trim(),
+    year: number(g("year")),
+    stage: g("stage").value || null,
+    sector: g("sector").value.trim(),
+    check_usd: amount(g("check_usd")),
+    outcome: g("outcome").value || null,
+    multiple: number(g("multiple")),
+    lesson: g("lesson").value.trim() || null
+  }));
+
+  const sectorRows = () => readRows("sector-rows", (g) => ({
+    sector: g("sector").value.trim(),
+    subsectors: list(g("subsectors").value)
+  }));
+
+  const priorGaps = () => priorRows()
+    .map((r) => ({ index: r.index, missing: PRIOR_REQUIRED.filter(([k]) => isEmpty(r.data[k])).map(([, l]) => l) }))
+    .filter((g) => g.missing.length);
+
+  const range = (minId, maxId, parse) => () => ({ min: parse($(minId)), max: parse($(maxId)) });
+
+  // One entry per §6 field, in form order. `np` marks fields that accept "No preference".
+  const FIELDS = [
+    { key: "investor_type", focus: "c-type-angel",
+      q: "What type of investor is this: angel, family office, fund, or corporate?",
+      read: () => (checkedValues("c-type")[0] || null),
+      write: (v) => setChecked("c-type", v ? [v] : []) },
+    { key: "capital_available_usd", focus: "c-capital",
+      q: "How much capital is available to deploy?",
+      read: () => amount($("c-capital")),
+      write: (v) => setAmount($("c-capital"), v) },
+    { key: "check_size", focus: "c-check-min",
+      q: "What is the check size range? Enter both a minimum and a maximum.",
+      read: () => ({ min_usd: amount($("c-check-min")), max_usd: amount($("c-check-max")) }),
+      complete: (v) => valid(v.min_usd) && valid(v.max_usd),
+      write: (v) => { setAmount($("c-check-min"), v && v.min_usd); setAmount($("c-check-max"), v && v.max_usd); } },
+    { key: "follow_on_reserve_policy", np: true, focus: "c-reserves",
+      q: "What is the follow-on reserve policy? Or mark it No preference.",
+      read: () => text("c-reserves"),
+      write: (v) => { $("c-reserves").value = v || ""; } },
+    { key: "return_objective", focus: "c-return",
+      q: "What return does the investor need? A target multiple or IRR is optional.",
+      read: () => ({ text: text("c-return"), target_multiple: number($("c-multiple")), target_irr_pct: number($("c-irr")) }),
+      complete: (v) => Boolean(v.text),
+      write: (v) => { $("c-return").value = (v && v.text) || ""; setNumber($("c-multiple"), v && v.target_multiple); setNumber($("c-irr"), v && v.target_irr_pct); } },
+    { key: "liquidity_objective", focus: "c-liquidity",
+      q: "What are the liquidity needs: distributions, timing, appetite for secondaries?",
+      read: () => text("c-liquidity"),
+      write: (v) => { $("c-liquidity").value = v || ""; } },
+    { key: "time_horizon_years", focus: "c-horizon-min",
+      q: "Over how many years can the capital stay invested?",
+      read: range("c-horizon-min", "c-horizon-max", number),
+      complete: (v) => valid(v.min),
+      write: (v) => { setNumber($("c-horizon-min"), v && v.min); setNumber($("c-horizon-max"), v && v.max); } },
+    { key: "prior_investments", focus: "c-add-prior",
+      q: "What prior investments has the investor made, and how did they turn out? Or confirm there are none.",
+      read: () => ($("c-no-prior").checked ? [] : priorRows().map((r) => r.data)),
+      status: (v) => ($("c-no-prior").checked || (v.length && !priorGaps().length) ? "provided" : "not_provided"),
+      detail: () => {
+        const gaps = priorGaps();
+        return gaps.length ? `Complete ${gaps.map((g) => `investment ${g.index} (${g.missing.join(", ")})`).join("; ")}.` : null;
+      },
+      write: (v) => (v || []).forEach(addPriorRow) },
+    { key: "stages", np: true, focus: "c-stage-first",
+      q: "Which stages does the investor back?",
+      read: () => checkedValues("c-stages"),
+      write: (v) => setChecked("c-stages", v) },
+    { key: "sectors", np: true, focus: "c-add-sector",
+      q: "Which sectors and subsectors are in scope?",
+      read: () => sectorRows().map((r) => r.data),
+      complete: (v) => v.length > 0 && v.every((r) => r.sector),
+      detail: (v) => (v.some((r) => !r.sector) ? "Name the sector for every sector row." : null),
+      write: (v) => (v || []).forEach(addSectorRow) },
+    { key: "geographies", np: true, focus: "c-geos",
+      q: "Which geographies are in scope?",
+      read: () => list($("c-geos").value),
+      write: (v) => { $("c-geos").value = (v || []).join(", "); } },
+    { key: "ownership_target_pct", np: true, focus: "c-ownership",
+      q: "What ownership percentage does the investor target?",
+      read: () => number($("c-ownership")),
+      write: (v) => setNumber($("c-ownership"), v) },
+    { key: "round_size", np: true, focus: "c-round-min",
+      q: "What round sizes fit? Enter both a minimum and a maximum.",
+      read: () => ({ min_usd: amount($("c-round-min")), max_usd: amount($("c-round-max")) }),
+      complete: (v) => valid(v.min_usd) && valid(v.max_usd),
+      write: (v) => { setAmount($("c-round-min"), v && v.min_usd); setAmount($("c-round-max"), v && v.max_usd); } },
+    { key: "instruments_accepted", np: true, focus: "c-instr-first",
+      q: "Which instruments will the investor accept?",
+      read: () => [...checkedValues("c-instruments"), ...list($("c-instr-other").value)],
+      write: (v) => { setChecked("c-instruments", v); $("c-instr-other").value = (v || []).filter((x) => !INSTRUMENTS.includes(x)).join(", "); } },
+    { key: "minimum_traction", np: true, focus: "c-traction-metric",
+      q: "What minimum traction must a company show? Choose a metric and enter the threshold.",
+      read: () => ({ metric: $("c-traction-metric").value || null, threshold: text("c-traction-threshold") }),
+      complete: (v) => Boolean(v.metric && v.threshold),
+      write: (v) => { $("c-traction-metric").value = (v && v.metric) || ""; $("c-traction-threshold").value = (v && v.threshold) || ""; } },
+    { key: "instant_no_filters", np: true, focus: "c-instant-no",
+      q: "What conditions are an instant no?",
+      read: () => lines("c-instant-no"),
+      write: (v) => { $("c-instant-no").value = (v || []).join("\n"); } },
+    { key: "thesis_notes", np: true, focus: "c-notes",
+      q: "Are there thesis notes or materials? Paste or attach them, or mark No thesis notes yet.",
+      read: () => ({ text: text("c-notes"), files: Array.from($("c-notes-files").files).map((f) => f.name) }),
+      complete: (v) => Boolean(v.text || v.files.length),
+      write: (v) => { $("c-notes").value = (v && v.text) || ""; } }
+  ];
+
   // ── events ───────────────────────────────────────────────────
   $("investor").addEventListener("change", (e) => selectInvestor(e.target.value));
   $("deck").addEventListener("change", (e) => setFile(e.target.files[0] || null));
@@ -1305,7 +1893,341 @@
   // A file dropped outside the dropzone must not navigate away from the app.
   ["dragover", "drop"].forEach((type) => window.addEventListener(type, (e) => e.preventDefault()));
 
+  // ── investor criteria: status, questions, draft, save ────────
+  const fieldEl = (f) => document.querySelector(`[data-field="${f.key}"]`);
+
+  function statusOf(f, value) {
+    if (f.np) {
+      const box = fieldEl(f).querySelector("[data-np]");
+      if (box && box.checked) return "no_preference";
+    }
+    if (f.status) return f.status(value);
+    return (f.complete ? f.complete(value) : !isEmpty(value)) ? "provided" : "not_provided";
+  }
+
+  function currentSlug() {
+    return state.criteriaSlug || slugify(text("c-name"));
+  }
+
+  function collectProfile() {
+    const fields = {};
+    for (const f of FIELDS) {
+      const value = f.read();
+      const status = statusOf(f, value);
+      const entry = { status, value: status === "no_preference" ? null : value, source: "intake" };
+      if (f.key === "prior_investments" && $("c-no-prior").checked) entry.affirmed_none = true;
+      fields[f.key] = entry;
+    }
+    return { schema_version: 1, slug: currentSlug(), display_name: text("c-name"), updated_at: new Date().toISOString(), fields };
+  }
+
+  function crossIssues(profile) {
+    const f = profile.fields;
+    const provided = (key) => (f[key].status === "provided" ? f[key].value : null);
+    const issues = [];
+    const check = f.check_size.value;
+    const round = f.round_size.value;
+    const horizon = f.time_horizon_years.value;
+    if (check && valid(check.min_usd) && valid(check.max_usd) && check.min_usd > check.max_usd) issues.push("The minimum check size is larger than the maximum.");
+    if (round && valid(round.min_usd) && valid(round.max_usd) && round.min_usd > round.max_usd) issues.push("The minimum round size is larger than the maximum.");
+    if (horizon && valid(horizon.min) && valid(horizon.max) && horizon.min > horizon.max) issues.push("The minimum time horizon is longer than the maximum.");
+    const capital = provided("capital_available_usd");
+    if (valid(capital) && check && valid(check.max_usd) && check.max_usd > capital) issues.push("The maximum check size is larger than the capital available.");
+    if (round && check && valid(round.max_usd) && valid(check.max_usd) && check.max_usd > round.max_usd) issues.push("The maximum check size is larger than the maximum round size.");
+    const ownership = f.ownership_target_pct.value;
+    if (valid(ownership) && (ownership <= 0 || ownership > 100)) issues.push("The ownership target must be above 0% and at most 100%.");
+    priorRows().forEach((r) => {
+      if (valid(r.data.year) && (r.data.year < 1950 || r.data.year > CURRENT_YEAR)) issues.push(`Investment ${r.index}: the year ${r.data.year} looks wrong.`);
+    });
+    if ($$("#criteria-form [aria-invalid='true']").length) issues.unshift("Some amounts or numbers couldn't be read. Write amounts like 250000, 250k or 2.5M.");
+    return issues;
+  }
+
+  function evaluate() {
+    const profile = collectProfile();
+    const questions = [];
+    if (!profile.display_name) questions.push({ text: "What is the investor's name?", target: "c-name" });
+    for (const f of FIELDS) {
+      const entry = profile.fields[f.key];
+      if (entry.status === "not_provided") questions.push({ text: (f.detail && f.detail(entry.value)) || f.q, target: f.focus });
+    }
+    return { profile, questions, issues: crossIssues(profile) };
+  }
+
+  function renderQuestions({ questions, issues }) {
+    const box = $("c-questions");
+    box.textContent = "";
+    box.dataset.state = questions.length ? "open" : "complete";
+    const title = document.createElement("h2");
+    title.textContent = questions.length
+      ? `${questions.length} ${questions.length === 1 ? "input" : "inputs"} still needed`
+      : "Every input is recorded";
+    const note = document.createElement("p");
+    note.className = "hint";
+    note.textContent = questions.length
+      ? "A Criteria Pack can't be built until each of these is answered or marked No preference. Nothing is filled in for you."
+      : "Save the criteria. The Criteria Pack will be built from exactly these inputs.";
+    box.append(title, note);
+    if (questions.length) {
+      const ol = document.createElement("ol");
+      questions.forEach((q) => {
+        const li = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "q-link";
+        button.textContent = q.text;
+        button.addEventListener("click", () => {
+          const el = $(q.target);
+          if (!el) return;
+          el.scrollIntoView({ block: "center", behavior: "smooth" });
+          el.focus({ preventScroll: true });
+        });
+        li.append(button);
+        ol.append(li);
+      });
+      box.append(ol);
+    }
+    if (issues.length) {
+      const heading = document.createElement("h3");
+      heading.textContent = "Check these";
+      const ul = document.createElement("ul");
+      issues.forEach((issue) => {
+        const li = document.createElement("li");
+        li.textContent = issue;
+        ul.append(li);
+      });
+      box.append(heading, ul);
+    }
+  }
+
+  function updateSlugHint(slug) {
+    $("c-slug-hint").textContent = !slug
+      ? "The profile ID is created from the name."
+      : state.criteriaSlug ? `Profile ID: ${slug} (fixed once saved)` : `Will be saved as profile ID: ${slug}`;
+  }
+
+  function saveDraft(profile) {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ profile, slug: state.criteriaSlug }));
+      $("draft-note").textContent = `Draft kept in this browser · ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    } catch {
+      $("draft-note").textContent = "This browser isn't keeping a draft. Download a copy to be safe.";
+    }
+  }
+
+  function loadDraft() {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function refreshCriteria(save = true) {
+    const result = evaluate();
+    renderQuestions(result);
+    updateSlugHint(result.profile.slug);
+    if (save) saveDraft(result.profile);
+    return result;
+  }
+
+  let criteriaTimer = null;
+  function onCriteriaChange() {
+    state.criteriaDirty = true;
+    clearTimeout(criteriaTimer);
+    criteriaTimer = setTimeout(() => refreshCriteria(), 150);
+  }
+
+  function applyNoPreference(field) {
+    const box = field.querySelector("[data-np]");
+    const on = Boolean(box && box.checked);
+    field.dataset.status = on ? "no_preference" : "";
+    $$("input, select, textarea, button", field).forEach((el) => { if (el !== box) el.disabled = on; });
+  }
+
+  function applyNoPrior() {
+    const on = $("c-no-prior").checked;
+    $$("#prior-rows input, #prior-rows select, #prior-rows button").forEach((el) => { el.disabled = on; });
+    $("c-add-prior").disabled = on;
+  }
+
+  function resetCriteriaForm() {
+    $("criteria-form").reset();
+    $("prior-rows").textContent = "";
+    $("sector-rows").textContent = "";
+    $$("#criteria-form [aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
+    $$("#criteria-form [data-field]").forEach(applyNoPreference);
+    applyNoPrior();
+  }
+
+  function applyProfile(profile) {
+    resetCriteriaForm();
+    if (!profile) return;
+    $("c-name").value = profile.display_name || "";
+    const fields = profile.fields || {};
+    for (const f of FIELDS) {
+      const entry = fields[f.key];
+      if (!entry) continue;
+      if (entry.status === "no_preference" && f.np) {
+        fieldEl(f).querySelector("[data-np]").checked = true;
+        applyNoPreference(fieldEl(f));
+      } else if (f.key === "prior_investments" && entry.affirmed_none) {
+        $("c-no-prior").checked = true;
+        applyNoPrior();
+      } else {
+        try { f.write(entry.value); } catch { /* a malformed saved value leaves the field empty */ }
+      }
+    }
+  }
+
+  function setCriteriaStatus(tone, message) {
+    const el = $("c-status");
+    if (!tone) { el.hidden = true; return; }
+    el.dataset.tone = tone;
+    el.textContent = message;
+    el.hidden = false;
+  }
+
+  async function onCriteriaInvestorChange() {
+    const select = $("c-investor");
+    const slug = select.value;
+    if (state.criteriaDirty && !window.confirm("Discard the unsaved entries on this form?")) {
+      select.value = state.criteriaSlug || "";
+      return;
+    }
+    state.criteriaSlug = slug || null;
+    setCriteriaStatus(null);
+    applyProfile(null);
+    if (slug) {
+      const investor = state.investors.find((inv) => inv.slug === slug);
+      $("c-name").value = investor ? investor.name : slug;
+      if (!cfg.preview) {
+        try {
+          applyProfile(await api(`/api/investors/${encodeURIComponent(slug)}/profile`));
+          setCriteriaStatus("ok", "Loaded the saved inputs.");
+        } catch (err) {
+          setCriteriaStatus("error", `Could not load the saved inputs: ${err.message}`);
+        }
+      }
+    }
+    refreshCriteria();
+    state.criteriaDirty = false;
+  }
+
+  async function saveCriteria(event) {
+    event.preventDefault();
+    const { profile, questions } = refreshCriteria();
+    if (!profile.display_name || !profile.slug) {
+      setCriteriaStatus("error", "Enter the investor's name before saving.");
+      $("c-name").focus();
+      return;
+    }
+    if (cfg.preview) {
+      setCriteriaStatus("warn", "Preview mode: nothing was sent to a server. Use Download JSON to keep a copy.");
+      return;
+    }
+    const button = $("c-save");
+    button.disabled = true;
+    const json = { "Content-Type": "application/json" };
+    try {
+      if (!state.criteriaSlug) {
+        await api("/api/investors", { method: "POST", headers: json, body: JSON.stringify({ slug: profile.slug, name: profile.display_name }) });
+        state.criteriaSlug = profile.slug;
+      }
+      const result = await api(`/api/investors/${encodeURIComponent(profile.slug)}/profile`, { method: "PUT", headers: json, body: JSON.stringify(profile) });
+      const files = $("c-notes-files").files;
+      if (files.length) {
+        const form = new FormData();
+        Array.from(files).forEach((file) => form.append("files", file));
+        await api(`/api/investors/${encodeURIComponent(profile.slug)}/profile/notes`, { method: "POST", body: form });
+      }
+      state.criteriaDirty = false;
+      const remaining = result && Array.isArray(result.questions) ? result.questions.length : questions.length;
+      setCriteriaStatus("ok", remaining
+        ? `Saved. ${remaining} ${remaining === 1 ? "input is" : "inputs are"} still needed before a Criteria Pack can be built.`
+        : "Saved. Every input is recorded, so the Criteria Pack can be built from these.");
+      await loadInvestors();
+      updateSlugHint(profile.slug);
+    } catch (err) {
+      setCriteriaStatus("error", `Not saved: ${err.message} Your entries are kept in this browser.`);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function downloadCriteria() {
+    const { profile } = refreshCriteria();
+    const blob = new Blob([`${JSON.stringify(profile, null, 2)}\n`], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${profile.slug || "investor"}-criteria-inputs.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function clearCriteria() {
+    if (!window.confirm("Clear every entry on this form?")) return;
+    state.criteriaSlug = null;
+    $("c-investor").value = "";
+    applyProfile(null);
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* storage unavailable */ }
+    setCriteriaStatus(null);
+    refreshCriteria(false);
+    $("draft-note").textContent = "Entries are kept as a draft in this browser.";
+    state.criteriaDirty = false;
+  }
+
+  // criteria events
+  const criteriaForm = $("criteria-form");
+  criteriaForm.addEventListener("submit", saveCriteria);
+  criteriaForm.addEventListener("input", onCriteriaChange);
+  criteriaForm.addEventListener("change", (e) => {
+    if (e.target.matches("[data-np]")) applyNoPreference(e.target.closest("[data-field]"));
+    if (e.target.id === "c-no-prior") applyNoPrior();
+    onCriteriaChange();
+  });
+  criteriaForm.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.matches("input:not([type='checkbox']):not([type='radio'])")) e.preventDefault();
+  });
+  criteriaForm.addEventListener("focusout", (e) => {
+    const el = e.target;
+    if (!el.matches("[data-money], [data-number]")) return;
+    const parsed = el.matches("[data-money]") ? parseAmount(el.value) : parseNumber(el.value);
+    if (Number.isNaN(parsed)) {
+      el.setAttribute("aria-invalid", "true");
+    } else {
+      el.removeAttribute("aria-invalid");
+      if (parsed !== null && el.matches("[data-money]")) el.value = formatUSD(parsed);
+    }
+    onCriteriaChange();
+  });
+  $("c-add-prior").addEventListener("click", () => { addPriorRow().querySelector("input").focus(); onCriteriaChange(); });
+  $("c-add-sector").addEventListener("click", () => { addSectorRow().querySelector("input").focus(); onCriteriaChange(); });
+  $("c-investor").addEventListener("change", onCriteriaInvestorChange);
+  $("c-download").addEventListener("click", downloadCriteria);
+  $("c-clear").addEventListener("click", clearCriteria);
+  window.addEventListener("hashchange", () => {
+    state.route = routeFromHash();
+    render(state.route === "criteria" ? "criteria" : state.screenView);
+  });
+
+  // ── init ─────────────────────────────────────────────────────
   renderStatic();
+  state.route = routeFromHash();
+  render(state.route === "criteria" ? "criteria" : state.screenView, false);
+
+  const draft = loadDraft();
+  if (draft && draft.profile) {
+    state.criteriaSlug = draft.slug || null;
+    applyProfile(draft.profile);
+    state.criteriaDirty = Boolean(draft.profile.display_name)
+      || Object.values(draft.profile.fields || {}).some((entry) => entry.status !== "not_provided");
+  }
+  refreshCriteria(false);
   loadInvestors();
 })();
 </script>

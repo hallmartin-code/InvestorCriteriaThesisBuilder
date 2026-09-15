@@ -3,6 +3,43 @@
 Design decisions taken where the build spec (`CLAUDE.md`) was silent, and places where the spec
 met reality. Newest first.
 
+## 2026-09-15 — Investor profiles saved on the server
+
+**What shipped.** Four endpoints, ahead of the Phase 0–6 order, because the operator wanted the
+criteria form to save:
+- `GET/POST /api/investors`
+- `GET/PUT /api/investors/{slug}/profile`
+- `POST /api/investors/{slug}/profile/notes`
+
+The code is in `src/icb/profile/` (`models.py`, `validate.py`, `store.py`), tested in
+`tests/test_profile_api.py`. `app.py` puts `src/` on `sys.path` rather than installing the
+package, per the Railpack entry below.
+
+**Decisions where the spec was silent**
+
+1. **The server decides every field's status.** A field is stored as `provided` only when its
+   value is complete, whatever the client sent. `no_preference` is honored only for fields that
+   allow it; on a Tier 1 field it is a 422. This enforces "never default a `not_provided` field"
+   in code, not just in the UI.
+2. **Consistency issues warn but never block a save.** They come back in the PUT response as
+   `issues`. Incomplete profiles save too, with their open `questions`, so work isn't lost.
+3. **`investor.json` holds the investor's name**, separate from `profile.yaml`. An investor
+   exists, and appears in lists, from the moment it is created, before any inputs are saved.
+   A PUT with a new `display_name` updates it.
+4. **Storage is atomic** (temp file + rename). A damaged `investor.json` is skipped in the list,
+   so it can't hide every other investor.
+5. **Limits, because the app is open to anyone:**
+   - text fields ≤ 5,000 characters (thesis text ≤ 50,000), lists capped
+   - profile body ≤ 512 KB
+   - ≤ 20 note files per investor, each ≤ `MAX_UPLOAD_MB`
+   - note files checked by extension and content: `%PDF` for .pdf, a zip header for .docx,
+     UTF-8 for .md/.txt
+   - one bad file in an upload saves none
+   - filenames reduced to their base name and safe characters, so a path in the name cannot
+     escape the notes folder
+6. **`approved_pack` is always `null`** until Phase 2 builds and approves Criteria Packs.
+7. **New pins:** `pydantic==2.13.4` (as deckpager) and `pyyaml==6.0.3`.
+
 ## 2026-09-15 — Sign-in removed: open access
 
 **Decision (operator):** remove the username/password sign-in and make the app open to anyone.

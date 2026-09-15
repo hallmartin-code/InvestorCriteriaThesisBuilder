@@ -34,7 +34,7 @@ def test_open_on_railway_even_if_a_password_variable_lingers(client, monkeypatch
     monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
     monkeypatch.setenv("APP_PASSWORD", "left-over")
     assert client.get("/").status_code == 200
-    assert client.get("/api/investors").status_code == 503  # not built yet, but not a login wall
+    assert client.get("/api/jobs/example").status_code == 503  # not built yet, but not a login wall
 
 
 def test_config_is_injected_and_cannot_break_out_of_script(client, monkeypatch):
@@ -83,6 +83,6 @@ def test_icons_are_referenced_and_load(client):
 
 
 def test_api_answers_not_built(client):
-    response = client.get("/api/investors")
+    response = client.get("/api/jobs/example")
     assert response.status_code == 503
     assert "not deployed yet" in response.json()["error"]
