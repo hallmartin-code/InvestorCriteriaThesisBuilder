@@ -1,8 +1,9 @@
 """Web entry point for the Investor Criteria Builder (CLAUDE.md §15).
 
-This is the deployable shell: it serves the UI, the icon set and the health check, and
-enforces the password gate. The analysis API arrives in Phase 7; until then every /api
-route answers 503 with a readable message, so a deployment never pretends to work.
+This is the deployable shell: it serves the UI, the icon set and the health check. Access is
+open to anyone, with no sign-in (operator decision, see DECISIONS.md). The analysis API
+arrives in Phase 7; until then every /api route answers 503 with a readable message, so a
+deployment never pretends to work.
 
 Local:   uvicorn app:app --reload --env-file .env
 Railway: python app.py   (see railway.json)
@@ -13,7 +14,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import secrets
 import shutil
 import time
 import urllib.error
@@ -22,9 +22,8 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -95,27 +94,6 @@ def config_script() -> str:
     return CONFIG_TAG.replace("{{CONFIG_JSON}}", raw)
 
 
-# --- auth ---------------------------------------------------------------------------------
-
-security = HTTPBasic(auto_error=False)
-
-
-def require_auth(credentials: HTTPBasicCredentials | None = Depends(security)) -> None:
-    password = os.getenv("APP_PASSWORD", "")
-    if not password:
-        if on_railway():
-            raise HTTPException(status_code=503, detail="Set APP_PASSWORD before using this deployment.")
-        return  # local development runs without a password
-    username = os.getenv("APP_USERNAME", "ten")
-    valid = credentials is not None and all((
-        secrets.compare_digest(credentials.username.encode(), username.encode()),
-        secrets.compare_digest(credentials.password.encode(), password.encode()),
-    ))
-    if not valid:
-        raise HTTPException(status_code=401, detail="Sign in to use this app.",
-                            headers={"WWW-Authenticate": 'Basic realm="TEN Capital", charset="UTF-8"'})
-
-
 # --- API key check ------------------------------------------------------------------------
 
 _key_check: tuple[float, bool | None] = (0.0, None)
@@ -151,11 +129,8 @@ def api_key_valid() -> bool | None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    if on_railway():
-        if not os.getenv("APP_PASSWORD"):
-            log.warning("APP_PASSWORD is not set: every page except /healthz answers 503.")
-        if not data_dir_persistent():
-            log.warning("No Railway volume holds ICB_DATA_DIR: investor data will be lost on redeploy.")
+    if on_railway() and not data_dir_persistent():
+        log.warning("No Railway volume holds ICB_DATA_DIR: investor data will be lost on redeploy.")
     yield
 
 
@@ -183,7 +158,6 @@ async def security_headers(request: Request, call_next: Callable[[Request], Awai
 def healthz(deep: bool = False) -> dict[str, object]:
     body: dict[str, object] = {
         "status": "ok",
-        "auth_enabled": bool(os.getenv("APP_PASSWORD")),
         "api_key_set": bool(os.getenv("ANTHROPIC_API_KEY")),
         "data_dir_persistent": data_dir_persistent(),
         "soffice_available": soffice_available(),
@@ -201,14 +175,13 @@ def favicon() -> FileResponse:
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
-@app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
+@app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
     page = INDEX_TEMPLATE.replace(CONFIG_TAG, config_script())
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
 
-@app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-               dependencies=[Depends(require_auth)], include_in_schema=False)
+@app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
 def api_not_built(path: str) -> JSONResponse:
     return JSONResponse({"error": NOT_BUILT}, status_code=503)
 

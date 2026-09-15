@@ -24,7 +24,7 @@ Build `icb` (Investor Criteria Builder), a Python CLI with two jobs:
 
 Both jobs run through two front ends that share one core:
 - the `icb` CLI
-- a password-protected web app deployed on Railway (§15)
+- a public web app deployed on Railway, with no sign-in (§15)
 
 The Claude API performs the analysis, using the operator's Anthropic Console API key. The
 key is held server-side only. Every generated result is emailed to TEN Capital via Resend
@@ -467,11 +467,10 @@ otherwise.
 - `app.py` already exists as a deployable shell. It serves:
   - the UI, with injected config
   - the icons, `/favicon.ico`, and `/healthz`
-  - the password gate
 
   Every `/api/*` route answers 503 until Phase 7 implements it, and
   `tests/test_app_shell.py` covers the shell. Extend this file rather than replacing it, and
-  keep its gate and health check.
+  keep its health check.
 - `src/icb/pipeline.py` is the only place analysis logic lives. `cli.py` and `app.py` are thin
   wrappers, so the two front ends cannot drift apart.
 - `web/index.html` is the whole UI, with no frontend framework. It already exists as a
@@ -564,7 +563,7 @@ Keep its tokens, components, and copy tone. Wire it to the API; don't restyle it
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/healthz` | Unauthenticated. Returns `{status, auth_enabled, api_key_set, data_dir_persistent, soffice_available, email_enabled, analysis_available}`. With `?deep=1` it also returns `api_key_valid` (via `models.list()`). |
+| GET | `/healthz` | Returns `{status, api_key_set, data_dir_persistent, soffice_available, email_enabled, analysis_available}`. With `?deep=1` it also returns `api_key_valid` (via `models.list()`). |
 | GET | `/` | The UI |
 | GET/POST | `/api/investors` | List returns `[{slug, name, approved_pack: {version, hash} or null}]`; create |
 | GET/PUT | `/api/investors/{slug}/profile` | PUT returns validation questions |
@@ -594,13 +593,20 @@ code category. Tracebacks are never returned.
 
 ### Security
 
-- **Auth.** HTTP Basic with `APP_USERNAME` / `APP_PASSWORD`, compared in constant time.
-  - If the app is on Railway (`RAILWAY_ENVIRONMENT`, `RAILWAY_ENVIRONMENT_NAME` or
-    `RAILWAY_PROJECT_ID` is set) and `APP_PASSWORD` is empty, every route except
-    `/healthz`, `/favicon.ico`, and `/public` returns 503 with "Set APP_PASSWORD before using this
-    deployment." The app never runs open on Railway.
-  - `/public` holds brand assets only (icons, manifest, fonts). It stays unauthenticated so
-    the favicon loads on the password prompt.
+- **Public access.** The app has no sign-in; anyone with the URL can use every screen and
+  API route. This was the operator's decision on 2026-09-15 (see `DECISIONS.md`). Do not add
+  authentication back unless the operator asks. The build must still account for the
+  consequences:
+  - **Spend.** Every screening and criteria build spends the Anthropic key. Before Phase 7
+    enables any endpoint that starts a model call, stop and ask the operator whether to add
+    per-client rate limits and a daily job cap, and what values to use. Do not pick
+    defaults. `MAX_UPLOAD_MB` and `MAX_CONCURRENT_JOBS` still apply.
+  - **Email volume.** Every result emails `ICB_REPORT_EMAIL_TO` (§16), so anyone can trigger
+    those emails. Include this in the same question.
+  - **Confidentiality.** Investor profiles, criteria packs, decision logs, and scorecards on
+    the volume are readable by any visitor. The UI must not describe the app as
+    confidential or access-controlled.
+  - `/public` holds brand assets only (icons, manifest, fonts).
 - **API key.** Read only from `ANTHROPIC_API_KEY`. Never accepted from the client, never
   logged, never included in any response or error. There is no UI field for it.
 - **Uploads.** The server enforces an extension + magic-byte check and `MAX_UPLOAD_MB`.
@@ -651,8 +657,6 @@ code category. Tracebacks are never returned.
    | Variable | Value |
    |---|---|
    | `ANTHROPIC_API_KEY` | the Console key |
-   | `APP_PASSWORD` | a strong password |
-   | `APP_USERNAME` | `ten` |
    | `ICB_DATA_DIR` | `/data/investors` |
    | `ICB_CACHE_DIR` | `/data/cache` |
    | `ICB_MODEL` | `claude-opus-5` |
@@ -664,7 +668,7 @@ code category. Tracebacks are never returned.
    Set the keys in the dashboard, or from the local `.env` without echoing it. Never type the
    key literally into a shell command, commit, log, or chat message.
 6. Settings → Networking → Generate Domain.
-7. Verify: `GET /healthz?deep=1` must report `auth_enabled`, `api_key_set`, `api_key_valid`,
+7. Verify: `GET /healthz?deep=1` must report `api_key_set`, `api_key_valid`,
    `data_dir_persistent`, and `email_enabled` all true. Then create the example investor, approve its pack,
    and screen one real deck through the browser.
 8. Record the deployment URL, volume, and any departures from this runbook in `DECISIONS.md`.
@@ -674,8 +678,8 @@ code category. Tracebacks are never returned.
 - Use `with TestClient(app) as c:` so background jobs complete.
 - Stub `pipeline` functions; make no network calls.
 - Cover:
-  - 401 without credentials
-  - 503 when `RAILWAY_ENVIRONMENT` is set without `APP_PASSWORD`
+  - every page and API route works without credentials, on Railway or locally, even if an
+    old `APP_PASSWORD` variable is still set
   - upload size and type limits
   - `.ppt` rejected when soffice is unavailable
   - 409 screening without an approved pack
@@ -691,7 +695,7 @@ code category. Tracebacks are never returned.
     - every icon and apple-touch-icon `href` in the page, and every manifest icon, returns
       200 with a PNG or ICO signature
     - `GET /favicon.ico` works
-    - all of them load without credentials, while `/` still returns 401
+    - all of them load without credentials
 
 ## 16. Result emails (Resend)
 

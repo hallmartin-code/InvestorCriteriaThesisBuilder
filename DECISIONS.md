@@ -3,6 +3,23 @@
 Design decisions taken where the build spec (`CLAUDE.md`) was silent, and places where the spec
 met reality. Newest first.
 
+## 2026-09-15 — Sign-in removed: open access
+
+**Decision (operator):** remove the username/password sign-in and make the app open to anyone.
+This supersedes the §15 password gate and the auth items verified in the deployment entry below.
+
+- `app.py` no longer has HTTP Basic auth or the "Set APP_PASSWORD" 503 gate. `/healthz` no longer
+  reports `auth_enabled`.
+- `APP_USERNAME` and `APP_PASSWORD` were removed from `.env`, `.env.example`, and the Railway
+  service.
+- **Accepted consequences, recorded so they are not rediscovered later:**
+  - Anyone with the URL can spend the Anthropic key once screening exists.
+  - Anyone can trigger result emails to `ICB_REPORT_EMAIL_TO`.
+  - Anyone can read investor data stored on the volume.
+- **Spec change.** `CLAUDE.md` §15 now requires Phase 7 to ask the operator about rate limits
+  and a daily job cap before enabling any endpoint that starts a model call. No defaults were
+  chosen.
+
 ## 2026-09-15 — Railway deployment (interface-only shell)
 
 **Deployment**
