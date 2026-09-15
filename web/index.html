@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TEN Capital Network — Investor Screening</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Icons live in web/public, served at /public. Relative paths also work when this file is opened directly. -->
+<link rel="icon" href="public/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="public/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="public/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="192x192" href="public/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="public/apple-touch-icon.png">
+<link rel="manifest" href="public/site.webmanifest">
+<meta name="theme-color" content="#0B1526">
+<!-- Phase 7: self-host Sora, Inter and JetBrains Mono (OFL) under /public/fonts and remove these three lines. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-950: #0B1526;
+    --navy-900: #101E33;
+    --navy-800: #16283F;
+    --navy-700: #1E354F;
+    --coral: #EE5A4E;
+    --coral-soft: #F0776C;
+    --amber: #F3A22A;
+    --teal: #35BEBB;
+    --ink-100: #F3F6FA;
+    --ink-300: #C4D0E0;
+    --ink-500: #7E90A8;
+    --ink-600: #5C6E86;
+
+    /* decision mapping: the brand triad carries meaning */
+    --advance: var(--teal);
+    --hold: var(--amber);
+    --pass: var(--coral);
+  }
+
+  *{ box-sizing: border-box; }
+  [hidden]{ display:none !important; }
+
+  html, body{
+    margin:0;
+    padding:0;
+    background: var(--navy-950);
+    color: var(--ink-100);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+  }
+
+  body{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 48px 20px;
+    position:relative;
+    overflow-x:hidden;
+  }
+
+  /* ambient tri-color glow, echoing the logo's three figures */
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background:
+      radial-gradient(480px 380px at 14% 8%, rgba(238,90,78,0.16), transparent 60%),
+      radial-gradient(480px 380px at 86% 6%, rgba(243,162,42,0.13), transparent 60%),
+      radial-gradient(560px 420px at 50% 100%, rgba(53,190,187,0.14), transparent 60%);
+    pointer-events:none;
+    z-index:0;
+  }
+
+  .stage{
+    position:relative;
+    z-index:1;
+    width:100%;
+    max-width: 620px;
+  }
+
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
+  :focus-visible{
+    outline: 2px solid var(--teal);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  .mono{ font-family:'JetBrains Mono', ui-monospace, monospace; }
+
+  /* banners */
+  .banner{
+    margin-bottom: 18px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(238,90,78,0.45);
+    background: rgba(238,90,78,0.10);
+    color: var(--ink-100);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .demo-tag{
+    display:inline-block;
+    margin-bottom: 14px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--navy-700);
+    color: var(--amber);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* brand lockup */
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom: 28px;
+    padding-left: 4px;
+  }
+  .brand-mark{ width:34px; height:34px; flex-shrink:0; }
+  .brand-word{
+    font-family:'Sora', sans-serif;
+    font-weight:800;
+    font-size:15px;
+    letter-spacing:0.04em;
+    line-height:1.15;
+    color: var(--ink-100);
+    text-transform:uppercase;
+  }
+  .brand-word span{
+    display:block;
+    font-weight:600;
+    font-size:10px;
+    letter-spacing:0.22em;
+    color: var(--ink-500);
+    margin-top:2px;
+  }
+
+  .card{
+    background: linear-gradient(180deg, var(--navy-900) 0%, var(--navy-800) 100%);
+    border: 1px solid var(--navy-700);
+    border-radius: 20px;
+    padding: 44px 44px 36px;
+    box-shadow:
+      0 30px 60px -20px rgba(0,0,0,0.55),
+      inset 0 1px 0 rgba(255,255,255,0.03);
+    position:relative;
+    overflow:hidden;
+  }
+  .card::after{
+    content:"";
+    position:absolute;
+    top:-2px; left:44px; right:44px;
+    height:2px;
+    background: linear-gradient(90deg, var(--coral), var(--amber), var(--teal));
+    border-radius: 2px;
+  }
+
+  .eyebrow{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color: var(--teal);
+    margin-bottom:14px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:6px; height:6px;
+    border-radius:50%;
+    background: currentColor;
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+  }
+  .eyebrow.is-error{ color: var(--coral); }
+
+  h1{
+    font-family:'Sora', sans-serif;
+    font-size: 28px;
+    font-weight:700;
+    line-height:1.25;
+    margin: 0 0 12px;
+    letter-spacing:-0.01em;
+  }
+  h1:focus{ outline:none; }
+  h1 .arrow{ color: var(--ink-500); font-weight:400; margin: 0 4px; }
+  h1 .to{
+    background: linear-gradient(90deg, var(--coral-soft), var(--amber));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .lede{
+    color: var(--ink-300);
+    font-size:15px;
+    line-height:1.6;
+    margin: 0 0 28px;
+    max-width: 50ch;
+  }
+
+  /* investor + criteria pack context */
+  .context{
+    display:grid;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .field-label{
+    display:block;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-500);
+    margin-bottom: 6px;
+  }
+  select, input[type="text"], textarea{
+    width:100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--navy-700);
+    background: var(--navy-950);
+    color: var(--ink-100);
+    font: inherit;
+    font-size: 14px;
+  }
+  select:disabled{ color: var(--ink-500); }
+  textarea{ min-height: 84px; resize: vertical; line-height: 1.5; }
+
+  .pack{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--navy-700);
+    background: rgba(255,255,255,0.015);
+    font-size: 13px;
+    color: var(--ink-300);
+  }
+  .pack::before{
+    content:"";
+    width:8px; height:8px; border-radius:50%;
+    flex-shrink:0;
+    background: var(--ink-500);
+  }
+  .pack[data-state="approved"]::before{ background: var(--teal); }
+  .pack[data-state="none"]{ border-color: rgba(238,90,78,0.35); }
+  .pack[data-state="none"]::before{ background: var(--coral); }
+
+  /* dropzone */
+  .dropzone{
+    display:block;
+    border: 1.5px dashed var(--navy-700);
+    border-radius: 14px;
+    padding: 34px 24px;
+    text-align:center;
+    cursor:pointer;
+    background: rgba(255,255,255,0.015);
+    transition: border-color .18s ease, background .18s ease, transform .18s ease;
+  }
+  .dropzone:hover,
+  .dropzone.is-drag{
+    border-color: var(--teal);
+    background: rgba(53,190,187,0.05);
+  }
+  .dropzone:focus-within{
+    border-color: var(--teal);
+    outline: 2px solid var(--teal);
+    outline-offset: 3px;
+  }
+  .dropzone:active{ transform: scale(0.997); }
+
+  .dropzone-icon{
+    width:38px; height:38px;
+    margin: 0 auto 14px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(238,90,78,0.16), rgba(243,162,42,0.16));
+    border: 1px solid var(--navy-700);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .dropzone-icon svg{ width:18px; height:18px; }
+  .dropzone-title{ font-size:15px; font-weight:600; color: var(--ink-100); margin-bottom:6px; }
+  .dropzone-sub{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    color: var(--ink-500);
+    letter-spacing:0.01em;
+  }
+  .dropzone-sub b{ color: var(--ink-300); font-weight:500; }
+
+  /* selected file */
+  .file{
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--navy-700);
+    background: var(--navy-950);
+  }
+  .file svg{ width:18px; height:18px; flex-shrink:0; }
+  .file-body{ min-width:0; flex:1; }
+  .file-name{ font-size:14px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .file-meta{ font-family:'JetBrains Mono', monospace; font-size:11px; color: var(--ink-500); margin-top:2px; }
+  .icon-btn{
+    width:30px; height:30px;
+    border-radius: 8px;
+    border: 1px solid var(--navy-700);
+    background: transparent;
+    color: var(--ink-300);
+    font-size: 16px;
+    line-height: 1;
+    cursor:pointer;
+  }
+  .icon-btn:hover{ color: var(--ink-100); border-color: var(--ink-600); }
+
+  .field-error{
+    margin: 10px 0 0;
+    color: var(--coral-soft);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .check{
+    display:flex;
+    align-items:flex-start;
+    gap: 10px;
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--ink-300);
+    line-height: 1.5;
+    cursor:pointer;
+  }
+  .check input{ margin-top: 3px; accent-color: var(--teal); }
+
+  code{
+    font-family:'JetBrains Mono', monospace;
+    background: var(--navy-950);
+    border: 1px solid var(--navy-700);
+    color: var(--ink-300);
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 11.5px;
+    word-break: break-all;
+  }
+
+  /* buttons */
+  .cta{
+    display:block;
+    width:100%;
+    margin-top: 22px;
+    padding: 16px 20px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(90deg, var(--coral) 0%, var(--coral-soft) 45%, var(--amber) 100%);
+    color: #17130E;
+    font-family:'Sora', sans-serif;
+    font-weight:700;
+    font-size:15px;
+    letter-spacing:0.01em;
+    text-align:center;
+    text-decoration:none;
+    cursor:pointer;
+    transition: filter .15s ease, transform .15s ease, opacity .15s ease;
+    box-shadow: 0 10px 24px -10px rgba(238,90,78,0.45);
+  }
+  .cta:hover{ filter: brightness(1.06); transform: translateY(-1px); }
+  .cta:active{ transform: translateY(0); }
+  .cta:disabled,
+  .cta[aria-disabled="true"]{
+    opacity: .4;
+    cursor: not-allowed;
+    filter:none;
+    transform:none;
+    box-shadow:none;
+  }
+
+  .btn-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .btn{
+    flex: 1 1 140px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--navy-700);
+    background: rgba(255,255,255,0.02);
+    color: var(--ink-100);
+    font-family:'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 13.5px;
+    text-align:center;
+    text-decoration:none;
+    cursor:pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .btn:hover{ border-color: var(--teal); background: rgba(53,190,187,0.06); }
+  .btn[aria-disabled="true"]{ opacity:.45; cursor:not-allowed; }
+  .btn[aria-expanded="true"]{ border-color: var(--teal); }
+
+  .link-btn{
+    display:inline-block;
+    margin-top: 18px;
+    background:none;
+    border:none;
+    padding:0;
+    color: var(--ink-300);
+    font: inherit;
+    font-size: 13.5px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor:pointer;
+  }
+  .link-btn:hover{ color: var(--ink-100); }
+
+  /* progress */
+  .stages{
+    list-style:none;
+    margin: 0;
+    padding: 0;
+    display:grid;
+    gap: 4px;
+  }
+  .stages li{
+    display:flex;
+    align-items:center;
+    gap: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    color: var(--ink-500);
+    font-size: 14px;
+  }
+  .stages li[data-status="active"]{
+    color: var(--ink-100);
+    background: rgba(53,190,187,0.06);
+    border: 1px solid rgba(53,190,187,0.25);
+  }
+  .stages li[data-status="done"]{ color: var(--ink-300); }
+  .stage-dot{
+    width:10px; height:10px; border-radius:50%;
+    flex-shrink:0;
+    border: 1.5px solid var(--navy-700);
+  }
+  .stages li[data-status="active"] .stage-dot{
+    border-color: var(--teal);
+    background: var(--teal);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .stages li[data-status="done"] .stage-dot{ border-color: var(--teal); background: var(--teal); }
+  .stage-state{
+    margin-left:auto;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  @keyframes pulse{
+    0%,100%{ box-shadow: 0 0 0 0 rgba(53,190,187,0.45); }
+    50%{ box-shadow: 0 0 0 6px rgba(53,190,187,0); }
+  }
+  .elapsed{
+    margin: 18px 0 0;
+    font-size: 12px;
+    color: var(--ink-500);
+    letter-spacing: 0.04em;
+  }
+
+  /* result */
+  .result-meta{
+    margin: 0 0 22px;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-500);
+    line-height: 1.6;
+    word-break: break-word;
+  }
+  .decision{
+    --tone: var(--ink-500);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 18px 20px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent);
+    background: color-mix(in srgb, var(--tone) 10%, transparent);
+  }
+  .decision[data-decision="ADVANCE"]{ --tone: var(--advance); }
+  .decision[data-decision="HOLD"]{ --tone: var(--hold); }
+  .decision[data-decision="PASS"]{ --tone: var(--pass); }
+  .decision-label{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-300);
+  }
+  .decision-value{
+    font-family:'Sora', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: 0.01em;
+    color: var(--tone);
+  }
+  .rule{
+    margin: 12px 0 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-300);
+  }
+
+  .stats{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .stat{
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--navy-700);
+    background: var(--navy-950);
+  }
+  .stat-label{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-500);
+  }
+  .stat-value{
+    margin-top: 6px;
+    font-family:'Sora', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+  }
+  .stat-value small{ font-size: 12px; font-weight: 400; color: var(--ink-500); }
+  .stat-sub{ margin-top: 2px; font-size: 12px; color: var(--ink-500); }
+
+  .preview{
+    margin-top: 14px;
+    border-radius: 12px;
+    overflow:hidden;
+    border: 1px solid var(--navy-700);
+    background: var(--navy-950);
+  }
+  .preview iframe{ display:block; width:100%; height: 760px; border:0; background:#fff; }
+  .preview-empty{ padding: 24px; font-size: 13px; color: var(--ink-500); text-align:center; }
+
+  .panel{
+    margin-top: 14px;
+    padding: 18px;
+    border-radius: 14px;
+    border: 1px solid var(--navy-700);
+    background: rgba(255,255,255,0.015);
+  }
+  .panel fieldset{ border:0; margin:0; padding:0; }
+  .panel legend{ padding:0; }
+  .radio-row{ display:flex; flex-wrap:wrap; gap: 8px; }
+  .radio{
+    position:relative;
+    flex: 1 1 120px;
+  }
+  .radio input{ position:absolute; opacity:0; inset:0; cursor:pointer; }
+  .radio span{
+    display:block;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--navy-700);
+    text-align:center;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ink-300);
+  }
+  .radio input:checked + span{ color: var(--ink-100); border-color: var(--teal); background: rgba(53,190,187,0.08); }
+  .radio input:focus-visible + span{ outline: 2px solid var(--teal); outline-offset: 2px; }
+  .panel .field{ margin-top: 14px; }
+  .hint{ margin: 6px 0 0; font-size: 12px; color: var(--ink-500); line-height: 1.5; }
+  .panel .cta{ margin-top: 16px; padding: 13px 18px; font-size: 14px; }
+
+  .status{
+    display:flex;
+    align-items:flex-start;
+    gap: 10px;
+    margin-top: 18px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ink-300);
+  }
+  .status::before{
+    content:"";
+    width:8px; height:8px; border-radius:50%;
+    margin-top: 6px;
+    flex-shrink:0;
+    background: var(--ink-500);
+  }
+  .status[data-tone="ok"]::before{ background: var(--teal); }
+  .status[data-tone="warn"]::before{ background: var(--amber); }
+  .status[data-tone="error"]::before{ background: var(--coral); }
+
+  /* footnote / disclosure */
+  .disclosure{
+    margin: 22px 0 0;
+    padding-top: 18px;
+    border-top: 1px solid var(--navy-700);
+    font-size: 12px;
+    line-height:1.6;
+    color: var(--ink-500);
+  }
+
+  footer{
+    text-align:center;
+    margin-top: 22px;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing:0.08em;
+    color: var(--ink-500);
+    text-transform:uppercase;
+  }
+
+  @media (max-width: 480px){
+    .card{ padding: 32px 22px 28px; }
+    .card::after{ left:22px; right:22px; }
+    h1{ font-size:23px; }
+    .stats{ grid-template-columns: 1fr; }
+    .preview iframe{ height: 560px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- app.py replaces {{CONFIG_JSON}} with server settings. Opened as a plain file, the page runs in preview mode with sample data. -->
+<script id="app-config" type="application/json">{{CONFIG_JSON}}</script>
+
+<div class="stage">
+
+  <div class="banner" id="volume-banner" role="alert" hidden>
+    No volume attached. Profiles, criteria packs and decision logs will be lost on redeploy.
+  </div>
+
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M50 6 C64 6 74 16 74 16" stroke="var(--amber)" stroke-width="11" stroke-linecap="round" fill="none"/>
+      <path d="M76 66 C76 82 63 92 63 92" stroke="var(--teal)" stroke-width="11" stroke-linecap="round" fill="none"/>
+      <path d="M24 66 C24 82 37 92 37 92" stroke="var(--coral)" stroke-width="11" stroke-linecap="round" fill="none" transform="rotate(180 50 79)"/>
+      <circle cx="50" cy="20" r="11" fill="var(--amber)"/>
+      <circle cx="78" cy="68" r="11" fill="var(--teal)"/>
+      <circle cx="22" cy="68" r="11" fill="var(--coral)"/>
+    </svg>
+    <div class="brand-word">Ten Capital<span>Network</span></div>
+  </div>
+
+  <main class="card" id="card">
+
+    <span class="demo-tag mono" id="demo-tag" hidden>Preview mode · sample data</span>
+
+    <!-- ── View: upload ─────────────────────────────────────────── -->
+    <section data-view="upload" aria-labelledby="upload-title">
+      <div class="eyebrow">Deck Screening</div>
+      <h1 id="upload-title">Pitch Deck<span class="arrow" aria-hidden="true">&rarr;</span><span class="to">Screening Scorecard</span></h1>
+      <p class="lede">Screen a pitch deck against an investor's approved criteria. You get a one-page PDF with the decision, the evidence behind every score, and what to request next.</p>
+
+      <div class="context">
+        <label class="field">
+          <span class="field-label">Investor</span>
+          <select id="investor"></select>
+        </label>
+        <div class="pack" id="pack-chip" data-state="loading" aria-live="polite">Loading criteria…</div>
+      </div>
+
+      <label class="dropzone" id="dropzone" for="deck">
+        <input class="sr-only" type="file" id="deck">
+        <div class="dropzone-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--ink-100)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+            <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/>
+          </svg>
+        </div>
+        <div class="dropzone-title">Drop a deck here, or click to choose</div>
+        <div class="dropzone-sub" id="dropzone-sub"></div>
+      </label>
+
+      <div class="file" id="file-row" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+          <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/>
+        </svg>
+        <div class="file-body">
+          <div class="file-name" id="file-name"></div>
+          <div class="file-meta" id="file-meta"></div>
+        </div>
+        <button class="icon-btn" type="button" id="file-remove" aria-label="Remove file">&times;</button>
+      </div>
+
+      <p class="field-error" id="upload-error" role="alert" hidden></p>
+
+      <label class="check" id="email-toggle" hidden>
+        <input type="checkbox" id="send-email" checked>
+        <span>Email this result to <code id="email-to"></code></span>
+      </label>
+
+      <button class="cta" type="button" id="submit" disabled>Screen deck</button>
+
+      <p class="disclosure" id="disclosure"></p>
+    </section>
+
+    <!-- ── View: progress ───────────────────────────────────────── -->
+    <section data-view="progress" aria-labelledby="progress-title" hidden>
+      <div class="eyebrow">Screening in progress</div>
+      <h1 id="progress-title">Screening your deck</h1>
+      <p class="lede" id="progress-lede">Large decks can take two to three minutes. Keep this page open.</p>
+
+      <ol class="stages" id="stages" aria-live="polite">
+        <li data-stage="reading"><span class="stage-dot"></span>Reading deck<span class="stage-state"></span></li>
+        <li data-stage="screening"><span class="stage-dot"></span>Screening against criteria<span class="stage-state"></span></li>
+        <li data-stage="deciding"><span class="stage-dot"></span>Applying decision rules<span class="stage-state"></span></li>
+        <li data-stage="rendering"><span class="stage-dot"></span>Rendering scorecard<span class="stage-state"></span></li>
+      </ol>
+
+      <p class="elapsed mono" id="elapsed">Elapsed 0:00</p>
+    </section>
+
+    <!-- ── View: result ─────────────────────────────────────────── -->
+    <section data-view="result" aria-labelledby="result-title" hidden>
+      <div class="eyebrow">Screening complete</div>
+      <h1 id="result-title"></h1>
+      <p class="result-meta" id="result-meta"></p>
+
+      <div class="decision" id="decision">
+        <span class="decision-label">Decision</span>
+        <span class="decision-value" id="decision-value"></span>
+      </div>
+      <p class="rule" id="rule"></p>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">Weighted score</div>
+          <div class="stat-value" id="stat-score"></div>
+          <div class="stat-sub" id="stat-threshold"></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Evidence coverage</div>
+          <div class="stat-value" id="stat-coverage"></div>
+          <div class="stat-sub">share of weight scored</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Hard criteria</div>
+          <div class="stat-value" id="stat-met"></div>
+          <div class="stat-sub" id="stat-criteria"></div>
+        </div>
+      </div>
+
+      <a class="cta" id="pdf-link" href="#" target="_blank" rel="noopener">Download scorecard PDF</a>
+      <div class="btn-row">
+        <a class="btn" id="json-link" href="#" download>Download JSON</a>
+        <button class="btn" type="button" id="preview-toggle" aria-expanded="false" aria-controls="preview">Preview</button>
+        <button class="btn" type="button" id="decide-toggle" aria-expanded="false" aria-controls="decide-panel">Record decision</button>
+      </div>
+
+      <div class="preview" id="preview" hidden></div>
+
+      <form class="panel" id="decide-panel" hidden novalidate>
+        <fieldset>
+          <legend class="field-label">Final decision</legend>
+          <div class="radio-row">
+            <label class="radio"><input type="radio" name="final" value="ADVANCE"><span>Advance</span></label>
+            <label class="radio"><input type="radio" name="final" value="HOLD"><span>Hold</span></label>
+            <label class="radio"><input type="radio" name="final" value="PASS"><span>Pass</span></label>
+          </div>
+        </fieldset>
+
+        <div class="field" id="reason-field" hidden>
+          <label class="field-label" for="reason">Override reason</label>
+          <textarea id="reason" aria-describedby="reason-hint"></textarea>
+          <p class="hint" id="reason-hint">This differs from the computed decision. Name the specific evidence that justifies the override.</p>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="initials">Reviewer initials</label>
+          <input type="text" id="initials" maxlength="4" autocomplete="off" style="max-width:120px">
+        </div>
+
+        <p class="field-error" id="decide-error" role="alert" hidden></p>
+        <button class="cta" type="submit" id="decide-submit">Save decision</button>
+        <div class="status" id="decide-status" data-tone="ok" hidden></div>
+      </form>
+
+      <div class="status" id="email-status" hidden></div>
+
+      <button class="link-btn" type="button" id="again">Screen another deck</button>
+    </section>
+
+    <!-- ── View: error ──────────────────────────────────────────── -->
+    <section data-view="error" aria-labelledby="error-title" hidden>
+      <div class="eyebrow is-error">Screening failed</div>
+      <h1 id="error-title">The deck could not be screened</h1>
+      <p class="lede" id="error-message"></p>
+      <button class="cta" type="button" id="retry">Try again</button>
+    </section>
+
+  </main>
+
+  <footer>Powered by TEN Capital Network · Confidential</footer>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // Used only when the page is opened without the server (no config injected).
+  const PREVIEW_CONFIG = {
+    preview: true,
+    max_mb: 25,
+    accept: [".pdf", ".pptx", ".docx"],
+    email_enabled: true,
+    email_to: "recipient@example.com",
+    data_dir_persistent: true,
+    soffice_available: false
+  };
+
+  const STAGES = ["reading", "screening", "deciding", "rendering"];
+  const POLL_MS = 2000;
+  const MAX_POLL_ERRORS = 3;
+
+  const $ = (id) => document.getElementById(id);
+
+  function readConfig() {
+    const raw = $("app-config").textContent.trim();
+    if (!raw || raw.startsWith("{{")) return PREVIEW_CONFIG;
+    try { return JSON.parse(raw); } catch { return PREVIEW_CONFIG; }
+  }
+
+  const cfg = readConfig();
+  const state = {
+    investors: [],
+    investor: null,
+    file: null,
+    jobId: null,
+    result: null,
+    pollTimer: null,
+    pollErrors: 0,
+    clock: null,
+    startedAt: 0
+  };
+
+  // ── helpers ──────────────────────────────────────────────────
+  function show(view, focus = true) {
+    document.querySelectorAll("[data-view]").forEach((s) => { s.hidden = s.dataset.view !== view; });
+    if (focus) {
+      const heading = document.querySelector(`[data-view="${view}"] h1`);
+      if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+    }
+    window.scrollTo({ top: 0 });
+  }
+
+  function extOf(name) {
+    const i = name.lastIndexOf(".");
+    return i < 0 ? "" : name.slice(i).toLowerCase();
+  }
+
+  function humanList(items) {
+    if (items.length <= 1) return items.join("");
+    return `${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function decisionKey(decision) {
+    if (!decision) return "";
+    if (decision.startsWith("HOLD")) return "HOLD";
+    return decision;
+  }
+
+  function setError(el, message) {
+    el.textContent = message || "";
+    el.hidden = !message;
+  }
+
+  async function api(path, options = {}) {
+    const response = await fetch(path, { credentials: "same-origin", ...options });
+    let body = null;
+    try { body = await response.json(); } catch { /* non-JSON body */ }
+    if (!response.ok) {
+      throw new Error(body && body.error ? body.error : `The server returned an error (${response.status}).`);
+    }
+    return body;
+  }
+
+  // ── setup ────────────────────────────────────────────────────
+  function renderStatic() {
+    $("demo-tag").hidden = !cfg.preview;
+    $("volume-banner").hidden = cfg.data_dir_persistent !== false;
+
+    const deck = $("deck");
+    deck.accept = cfg.accept.join(",");
+
+    const sub = $("dropzone-sub");
+    sub.textContent = "";
+    cfg.accept.forEach((ext, i) => {
+      if (i) sub.append(" · ");
+      const b = document.createElement("b");
+      b.textContent = ext;
+      sub.append(b);
+    });
+    sub.append(`  ·  up to ${cfg.max_mb} MB`);
+
+    $("email-toggle").hidden = !cfg.email_enabled;
+    $("email-to").textContent = cfg.email_to || "";
+
+    const disclosure = $("disclosure");
+    disclosure.textContent = "The deck is sent to the Claude API for analysis and deleted from the server once it has been read. ";
+    if (cfg.email_enabled && cfg.email_to) {
+      disclosure.append("A copy of every result is emailed to ");
+      const code = document.createElement("code");
+      code.textContent = cfg.email_to;
+      disclosure.append(code, ".");
+    } else {
+      disclosure.append("Result emails are not configured on this server.");
+    }
+    if (!cfg.accept.includes(".ppt")) {
+      disclosure.append(" Legacy .ppt files are not supported here; save as .pptx or PDF first.");
+    }
+  }
+
+  async function loadInvestors() {
+    const select = $("investor");
+    try {
+      state.investors = cfg.preview
+        ? [{ slug: "example", name: "Example Investor", approved_pack: { version: 1, hash: "0a1b2c3d4e5f6a7b" } }]
+        : await api("/api/investors");
+    } catch (err) {
+      state.investors = [];
+      setError($("upload-error"), err.message);
+    }
+
+    select.textContent = "";
+    if (!state.investors.length) {
+      const opt = new Option("No investors yet", "");
+      opt.disabled = true;
+      select.add(opt);
+      select.disabled = true;
+    } else {
+      state.investors.forEach((inv) => select.add(new Option(inv.name, inv.slug)));
+      select.disabled = state.investors.length === 1;
+    }
+    selectInvestor(select.value);
+  }
+
+  function selectInvestor(slug) {
+    state.investor = state.investors.find((inv) => inv.slug === slug) || null;
+    const chip = $("pack-chip");
+    const pack = state.investor && state.investor.approved_pack;
+    if (!state.investor) {
+      chip.dataset.state = "none";
+      chip.textContent = "Create an investor profile and approve its criteria before screening.";
+    } else if (!pack) {
+      chip.dataset.state = "none";
+      chip.textContent = "No approved Criteria Pack. Approve one before screening.";
+    } else {
+      chip.dataset.state = "approved";
+      chip.textContent = `Criteria Pack v${pack.version} · approved · #${String(pack.hash).slice(0, 8)}`;
+    }
+    updateSubmit();
+  }
+
+  // ── file selection ───────────────────────────────────────────
+  function setFile(file) {
+    setError($("upload-error"), "");
+    if (!file) {
+      state.file = null;
+      $("deck").value = "";
+      $("file-row").hidden = true;
+      updateSubmit();
+      return;
+    }
+    const ext = extOf(file.name);
+    if (!cfg.accept.includes(ext)) {
+      setError($("upload-error"), `${ext || "This file type"} is not supported here. Upload a ${humanList(cfg.accept)} file.`);
+      return;
+    }
+    if (file.size > cfg.max_mb * 1024 * 1024) {
+      setError($("upload-error"), `This file is ${formatSize(file.size)}; the limit is ${cfg.max_mb} MB.`);
+      return;
+    }
+    state.file = file;
+    $("file-name").textContent = file.name;
+    $("file-meta").textContent = `${ext.slice(1).toUpperCase()} · ${formatSize(file.size)}`;
+    $("file-row").hidden = false;
+    updateSubmit();
+  }
+
+  function updateSubmit() {
+    const ready = Boolean(state.file && state.investor && state.investor.approved_pack);
+    $("submit").disabled = !ready;
+  }
+
+  // ── screening job ────────────────────────────────────────────
+  function setStage(current) {
+    const index = STAGES.indexOf(current);
+    document.querySelectorAll("#stages li").forEach((li, i) => {
+      const status = index < 0 ? "pending" : i < index ? "done" : i === index ? "active" : "pending";
+      li.dataset.status = status;
+      li.querySelector(".stage-state").textContent = status === "done" ? "Done" : status === "active" ? "In progress" : "";
+    });
+  }
+
+  function startClock() {
+    state.startedAt = Date.now();
+    const tick = () => {
+      const s = Math.floor((Date.now() - state.startedAt) / 1000);
+      $("elapsed").textContent = `Elapsed ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+    };
+    tick();
+    state.clock = setInterval(tick, 1000);
+  }
+
+  function stopJob() {
+    clearInterval(state.clock);
+    clearTimeout(state.pollTimer);
+    state.clock = null;
+    state.pollTimer = null;
+  }
+
+  async function submit() {
+    if ($("submit").disabled) return;
+    $("progress-title").textContent = `Screening ${state.file.name}`;
+    setStage("reading");
+    show("progress");
+    startClock();
+
+    if (cfg.preview) return runPreview();
+
+    const form = new FormData();
+    form.append("deck", state.file);
+    form.append("email", cfg.email_enabled && $("send-email").checked ? "true" : "false");
+    form.append("pack_version", String(state.investor.approved_pack.version));
+
+    try {
+      const { job_id } = await api(`/api/investors/${encodeURIComponent(state.investor.slug)}/screen`, { method: "POST", body: form });
+      state.jobId = job_id;
+      state.pollErrors = 0;
+      poll();
+    } catch (err) {
+      fail(err.message);
+    }
+  }
+
+  function poll() {
+    state.pollTimer = setTimeout(async () => {
+      try {
+        const job = await api(`/api/jobs/${encodeURIComponent(state.jobId)}`);
+        state.pollErrors = 0;
+        if (job.stage) setStage(job.stage);
+        if (job.state === "done") return complete(job);
+        if (job.state === "failed") return fail(job.error || "The screening did not complete.");
+        poll();
+      } catch (err) {
+        state.pollErrors += 1;
+        if (state.pollErrors >= MAX_POLL_ERRORS) return fail(`Lost contact with the server: ${err.message}`);
+        poll();
+      }
+    }, POLL_MS);
+  }
+
+  function runPreview() {
+    STAGES.forEach((stage, i) => {
+      state.pollTimer = setTimeout(() => setStage(stage), i * 1100);
+    });
+    setTimeout(() => complete({
+      id: "preview",
+      result: {
+        company: "Example Company",
+        source_filename: state.file.name,
+        decision: "HOLD — REQUEST EVIDENCE",
+        rule_sentence: "Rule 3: 2 hard criteria unverified.",
+        weighted_score: 3.4,
+        advance_threshold: 3.5,
+        evidence_coverage: 70,
+        criteria_counts: { met: 6, unverified: 2, not_met: 0 },
+        pack: { version: 1, hash: "0a1b2c3d4e5f6a7b" },
+        investor_name: "Example Investor"
+      },
+      email: { status: "sent", recipient: cfg.email_to }
+    }), STAGES.length * 1100);
+  }
+
+  function complete(job) {
+    stopJob();
+    setStage(null);
+    document.querySelectorAll("#stages li").forEach((li) => { li.dataset.status = "done"; });
+
+    const r = job.result || {};
+    state.result = r;
+    state.jobId = job.id || state.jobId;
+
+    $("result-title").textContent = r.company || "Unnamed company";
+    const pack = r.pack || {};
+    $("result-meta").textContent = [
+      r.investor_name,
+      pack.version != null ? `Criteria Pack v${pack.version} #${String(pack.hash || "").slice(0, 8)}` : null,
+      r.source_filename
+    ].filter(Boolean).join("  ·  ");
+
+    const key = decisionKey(r.decision);
+    $("decision").dataset.decision = key;
+    $("decision-value").textContent = r.decision || "—";
+    $("rule").textContent = r.rule_sentence || "";
+
+    const score = $("stat-score");
+    score.textContent = r.weighted_score == null ? "—" : Number(r.weighted_score).toFixed(1);
+    const small = document.createElement("small");
+    small.textContent = " /5";
+    score.append(small);
+    $("stat-threshold").textContent = r.advance_threshold == null ? "" : `Advance at ${Number(r.advance_threshold).toFixed(1)}`;
+
+    const coverage = $("stat-coverage");
+    coverage.textContent = r.evidence_coverage == null ? "—" : String(r.evidence_coverage);
+    const small2 = document.createElement("small");
+    small2.textContent = " /100";
+    coverage.append(small2);
+
+    const counts = r.criteria_counts || {};
+    $("stat-met").textContent = `${counts.met ?? 0} met`;
+    $("stat-criteria").textContent = `${counts.unverified ?? 0} unverified · ${counts.not_met ?? 0} not met`;
+
+    const base = cfg.preview ? null : `/api/jobs/${encodeURIComponent(state.jobId)}`;
+    for (const [id, suffix] of [["pdf-link", "pdf"], ["json-link", "json"]]) {
+      const link = $(id);
+      if (base) {
+        link.href = `${base}/${suffix}`;
+        link.removeAttribute("aria-disabled");
+      } else {
+        link.href = "#";
+        link.setAttribute("aria-disabled", "true");
+      }
+    }
+
+    // reset panels
+    $("preview").hidden = true;
+    $("preview").textContent = "";
+    $("preview-toggle").setAttribute("aria-expanded", "false");
+    $("decide-panel").hidden = true;
+    $("decide-panel").reset();
+    $("reason-field").hidden = true;
+    $("decide-toggle").setAttribute("aria-expanded", "false");
+    setError($("decide-error"), "");
+    $("decide-status").hidden = true;
+
+    renderEmailStatus(job.email);
+    show("result");
+  }
+
+  function renderEmailStatus(email) {
+    const el = $("email-status");
+    if (!email) { el.hidden = true; return; }
+    const messages = {
+      sent: ["ok", `Result emailed to ${email.recipient || cfg.email_to}.`],
+      skipped: ["warn", "Email was switched off for this run."],
+      not_configured: ["warn", "Result emails are not configured on this server."],
+      failed: ["error", `The result was saved, but the email could not be sent: ${email.reason || "unknown error"}.`]
+    };
+    const [tone, text] = messages[email.status] || ["warn", `Email status: ${email.status}`];
+    el.dataset.tone = tone;
+    el.textContent = text;
+    el.hidden = false;
+  }
+
+  function fail(message) {
+    stopJob();
+    $("error-message").textContent = message;
+    show("error");
+  }
+
+  // ── result actions ───────────────────────────────────────────
+  function togglePreview() {
+    const panel = $("preview");
+    const button = $("preview-toggle");
+    const open = panel.hidden;
+    panel.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    if (open && !panel.firstChild) {
+      if (cfg.preview) {
+        const p = document.createElement("div");
+        p.className = "preview-empty";
+        p.textContent = "The scorecard preview appears here when the page is served by the app.";
+        panel.append(p);
+      } else {
+        const frame = document.createElement("iframe");
+        frame.title = "Scorecard PDF preview";
+        frame.src = `/api/jobs/${encodeURIComponent(state.jobId)}/pdf#view=FitH`;
+        panel.append(frame);
+      }
+    }
+  }
+
+  function toggleDecide() {
+    const panel = $("decide-panel");
+    const open = panel.hidden;
+    panel.hidden = !open;
+    $("decide-toggle").setAttribute("aria-expanded", String(open));
+    if (open) {
+      const computed = decisionKey(state.result && state.result.decision);
+      const match = panel.querySelector(`input[name="final"][value="${computed}"]`);
+      if (match) match.checked = true;
+      $("reason-field").hidden = true;
+    }
+  }
+
+  function onFinalChange() {
+    const chosen = $("decide-panel").querySelector('input[name="final"]:checked');
+    const computed = decisionKey(state.result && state.result.decision);
+    $("reason-field").hidden = !chosen || chosen.value === computed;
+  }
+
+  async function saveDecision(event) {
+    event.preventDefault();
+    const panel = $("decide-panel");
+    const chosen = panel.querySelector('input[name="final"]:checked');
+    const computed = decisionKey(state.result && state.result.decision);
+    const initials = $("initials").value.trim();
+    const reason = $("reason").value.trim();
+    const override = Boolean(chosen && chosen.value !== computed);
+
+    let problem = "";
+    if (!chosen) problem = "Choose a final decision.";
+    else if (override && reason.length < 20) problem = "An override needs a reason that names the evidence behind it.";
+    else if (!/^[A-Za-z]{2,4}$/.test(initials)) problem = "Enter your initials (2–4 letters).";
+    setError($("decide-error"), problem);
+    if (problem) return;
+
+    const status = $("decide-status");
+    $("decide-submit").disabled = true;
+    try {
+      if (!cfg.preview) {
+        await api(`/api/investors/${encodeURIComponent(state.investor.slug)}/decisions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            job_id: state.jobId,
+            final_decision: chosen.value,
+            reviewer_initials: initials.toUpperCase(),
+            exception_reason: override ? reason : null
+          })
+        });
+      }
+      status.dataset.tone = "ok";
+      status.textContent = override
+        ? "Override recorded. The scorecard has been updated with your reason."
+        : "Decision recorded. The scorecard has been updated.";
+      status.hidden = false;
+    } catch (err) {
+      setError($("decide-error"), err.message);
+    } finally {
+      $("decide-submit").disabled = false;
+    }
+  }
+
+  // ── events ───────────────────────────────────────────────────
+  $("investor").addEventListener("change", (e) => selectInvestor(e.target.value));
+  $("deck").addEventListener("change", (e) => setFile(e.target.files[0] || null));
+  $("file-remove").addEventListener("click", () => setFile(null));
+  $("submit").addEventListener("click", submit);
+  $("retry").addEventListener("click", () => show("upload"));
+  $("again").addEventListener("click", () => { setFile(null); show("upload"); });
+  $("preview-toggle").addEventListener("click", togglePreview);
+  $("decide-toggle").addEventListener("click", toggleDecide);
+  $("decide-panel").addEventListener("change", (e) => { if (e.target.name === "final") onFinalChange(); });
+  $("decide-panel").addEventListener("submit", saveDecision);
+  for (const id of ["pdf-link", "json-link"]) {
+    $(id).addEventListener("click", (e) => { if ($(id).getAttribute("aria-disabled") === "true") e.preventDefault(); });
+  }
+
+  const zone = $("dropzone");
+  ["dragenter", "dragover"].forEach((type) => zone.addEventListener(type, (e) => {
+    e.preventDefault();
+    zone.classList.add("is-drag");
+  }));
+  ["dragleave", "drop"].forEach((type) => zone.addEventListener(type, () => zone.classList.remove("is-drag")));
+  zone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    setFile(e.dataTransfer.files[0] || null);
+  });
+  // A file dropped outside the dropzone must not navigate away from the app.
+  ["dragover", "drop"].forEach((type) => window.addEventListener(type, (e) => e.preventDefault()));
+
+  renderStatic();
+  loadInvestors();
+})();
+</script>
+
+</body>
+</html>
