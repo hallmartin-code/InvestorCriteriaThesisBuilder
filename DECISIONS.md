@@ -3,6 +3,24 @@
 Design decisions taken where the build spec (`CLAUDE.md`) was silent, and places where the spec
 met reality. Newest first.
 
+## 2026-09-15 — Screening is closed until the inputs are complete
+
+**Decision (operator):** an investor cannot be screened until every §6 input is answered or
+marked No preference.
+
+- `GET /api/investors` reports `inputs_complete` and `open_questions` per investor, counted
+  from the stored profile (a missing profile counts as every field open).
+- The screening tab shows how many inputs are missing, links to the criteria form, and keeps
+  the upload button disabled. The CLI and `POST …/screen` refuse in the same state.
+- This gate is separate from the Criteria Pack approval gate, which arrives with Phase 2.
+
+## 2026-09-15 — No rate limits or daily cap
+
+**Decision (operator):** do not add per-client rate limits or a daily job cap, and do not ask
+about them. This supersedes the "Spec change" item in the open-access entry below.
+`CLAUDE.md` §15 now says so. Spend is bounded only by `MAX_UPLOAD_MB`, `MAX_CONCURRENT_JOBS`,
+and any spend limit set on the key in the Anthropic Console.
+
 ## 2026-09-15 — Investor profiles saved on the server
 
 **What shipped.** Four endpoints, ahead of the Phase 0–6 order, because the operator wanted the

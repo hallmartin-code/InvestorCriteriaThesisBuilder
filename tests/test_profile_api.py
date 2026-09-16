@@ -58,8 +58,19 @@ def test_create_and_list(client):
     assert client.get("/api/investors").json() == []
     response = create(client)
     assert response.status_code == 201
-    assert response.json() == {"slug": "acme-capital", "name": "Acme Capital", "approved_pack": None}
+    assert response.json() == {"slug": "acme-capital", "name": "Acme Capital", "approved_pack": None,
+                              "inputs_complete": False, "open_questions": 17}
     assert client.get("/api/investors").json() == [response.json()]
+
+
+def test_list_reports_input_progress_so_screening_can_stay_closed(client):
+    create(client)
+    client.put(PROFILE, json=document({"investor_type": {"status": "provided", "value": "fund"}}))
+    entry = client.get("/api/investors").json()[0]
+    assert entry["inputs_complete"] is False and entry["open_questions"] == 16
+    client.put(PROFILE, json=document(COMPLETE_FIELDS))
+    entry = client.get("/api/investors").json()[0]
+    assert entry["inputs_complete"] is True and entry["open_questions"] == 0
 
 
 def test_duplicate_and_bad_slugs_are_rejected(client):

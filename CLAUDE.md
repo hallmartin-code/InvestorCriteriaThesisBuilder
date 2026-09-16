@@ -254,7 +254,8 @@ hash. Investors edit drafts by hand; `icb criteria validate` re-checks the edite
 ## 8. Deck screening
 
 `icb screen <slug> DECK [--pack vN]` uses the latest approved pack by default. If none exists,
-it exits 6.
+it exits 6. **Screening is closed until the investor's §6 inputs are complete**: if any field is
+still `not_provided`, it exits 6 and names the count.
 
 **Ingest.** Use the deckpager contract unchanged: PDF as a native `document` block;
 PPTX/PPT converted via LibreOffice; DOCX via `../deckpager/src/deckpager/ingest/docx.py`, citing
@@ -514,6 +515,9 @@ otherwise.
      checkbox.
    - Downloads: pack PDF, blank scorecard template.
 4. **Screen a deck**:
+   - **Screening is closed until that investor's inputs are complete.** The chip reads
+     "Screening is closed: N inputs still needed" and links to the criteria form; the upload
+     button stays disabled. `POST …/screen` returns 409 in the same state.
    - Upload a deck and pick the approved pack version (latest by default).
    - A progress view shows the stages: Reading deck → Screening against criteria → Applying
      decision rules → Rendering scorecard.
@@ -586,7 +590,7 @@ Keep its tokens, components, and copy tone. Wire it to the API; don't restyle it
 |---|---|---|
 | GET | `/healthz` | Returns `{status, api_key_set, data_dir_persistent, soffice_available, email_enabled, analysis_available}`. With `?deep=1` it also returns `api_key_valid` (via `models.list()`). |
 | GET | `/` | The UI |
-| GET/POST | `/api/investors` | List returns `[{slug, name, approved_pack: {version, hash} or null}]` (always `null` until Phase 2). Create takes `{slug, name}` and returns 201, or 409 if the slug exists |
+| GET/POST | `/api/investors` | List returns `[{slug, name, approved_pack, inputs_complete, open_questions}]`; `approved_pack` is `null` until Phase 2. Create takes `{slug, name}` and returns 201, or 409 if the slug exists |
 | GET/PUT | `/api/investors/{slug}/profile` | The profile document from Screens 2. PUT validates server-side and returns `{saved_at, questions: [{field, question}], issues: [...]}`. GET before any save returns an empty document with the investor's name |
 | POST | `/api/investors/{slug}/profile/notes` | Multipart `files` (.pdf/.docx/.md/.txt) for thesis notes |
 | POST | `/api/investors/{slug}/criteria/build` | Returns `{job_id}` |
@@ -619,12 +623,10 @@ code category. Tracebacks are never returned.
   API route. This was the operator's decision on 2026-09-15 (see `DECISIONS.md`). Do not add
   authentication back unless the operator asks. The build must still account for the
   consequences:
-  - **Spend.** Every screening and criteria build spends the Anthropic key. Before Phase 7
-    enables any endpoint that starts a model call, stop and ask the operator whether to add
-    per-client rate limits and a daily job cap, and what values to use. Do not pick
-    defaults. `MAX_UPLOAD_MB` and `MAX_CONCURRENT_JOBS` still apply.
-  - **Email volume.** Every result emails `ICB_REPORT_EMAIL_TO` (§16), so anyone can trigger
-    those emails. Include this in the same question.
+  - **Spend and email volume.** Every screening and criteria build spends the Anthropic key,
+    and every result emails `ICB_REPORT_EMAIL_TO` (§16). By operator decision (2026-09-15)
+    there are **no rate limits and no daily job cap**. Do not add them, and do not stop to
+    ask about them. `MAX_UPLOAD_MB` and `MAX_CONCURRENT_JOBS` still apply.
   - **Confidentiality.** Investor profiles, criteria packs, decision logs, and scorecards on
     the volume are readable by any visitor. The UI must not describe the app as
     confidential or access-controlled.

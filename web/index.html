@@ -1305,7 +1305,7 @@
     const select = $("investor");
     try {
       state.investors = cfg.preview
-        ? [{ slug: "example", name: "Example Investor", approved_pack: { version: 1, hash: "0a1b2c3d4e5f6a7b" } }]
+        ? [{ slug: "example", name: "Example Investor", approved_pack: null, inputs_complete: true, open_questions: 0 }]
         : await api("/api/investors");
     } catch (err) {
       state.investors = [];
@@ -1336,7 +1336,8 @@
   function selectInvestor(slug) {
     state.investor = state.investors.find((inv) => inv.slug === slug) || null;
     const chip = $("pack-chip");
-    const pack = state.investor && state.investor.approved_pack;
+    const ready = Boolean(state.investor && state.investor.inputs_complete);
+    const open = state.investor ? Number(state.investor.open_questions || 0) : 0;
     const criteriaLink = (label) => {
       const a = document.createElement("a");
       a.href = "#criteria";
@@ -1347,13 +1348,13 @@
       chip.dataset.state = "none";
       chip.textContent = "No investors yet. ";
       chip.append(criteriaLink("Enter investor criteria"));
-    } else if (!pack) {
+    } else if (!ready) {
       chip.dataset.state = "none";
-      chip.textContent = "No approved Criteria Pack yet. ";
-      chip.append(criteriaLink("Review investor criteria"));
+      chip.textContent = `Screening is closed: ${open} ${open === 1 ? "input" : "inputs"} still needed. `;
+      chip.append(criteriaLink("Complete investor criteria"));
     } else {
       chip.dataset.state = "approved";
-      chip.textContent = `Criteria Pack v${pack.version} · approved · #${String(pack.hash).slice(0, 8)}`;
+      chip.textContent = "Criteria complete · screening open";
     }
     updateSubmit();
   }
@@ -1385,7 +1386,7 @@
   }
 
   function updateSubmit() {
-    const ready = Boolean(state.file && state.investor && state.investor.approved_pack);
+    const ready = Boolean(state.file && state.investor && state.investor.inputs_complete);
     $("submit").disabled = !ready;
   }
 
@@ -1428,7 +1429,7 @@
     const form = new FormData();
     form.append("deck", state.file);
     form.append("email", cfg.email_enabled && $("send-email").checked ? "true" : "false");
-    form.append("pack_version", String(state.investor.approved_pack.version));
+    if (state.investor.approved_pack) form.append("pack_version", String(state.investor.approved_pack.version));
 
     try {
       const { job_id } = await api(`/api/investors/${encodeURIComponent(state.investor.slug)}/screen`, { method: "POST", body: form });

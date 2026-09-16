@@ -17,7 +17,7 @@ from typing import Any
 
 import yaml
 
-from icb.profile.models import SLUG_PATTERN
+from icb.profile.models import FIELD_KEYS, SLUG_PATTERN
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 SLUG_RE = re.compile(SLUG_PATTERN)
@@ -76,6 +76,23 @@ def read_investor(slug: str) -> dict[str, Any]:
     return json.loads((investor_path(slug) / "investor.json").read_text(encoding="utf-8"))
 
 
+def profile_progress(path: Path) -> tuple[bool, int]:
+    """(inputs_complete, open_questions) for a stored profile. Screening stays closed until complete."""
+    profile: Any = None
+    stored = path / "profile.yaml"
+    if stored.is_file():
+        try:
+            profile = yaml.safe_load(stored.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            profile = None
+    fields = (profile or {}).get("fields") or {} if isinstance(profile, dict) else {}
+    open_questions = sum(
+        1 for key in FIELD_KEYS
+        if (fields.get(key) or {}).get("status", "not_provided") == "not_provided"
+    )
+    return open_questions == 0, open_questions
+
+
 def list_investors() -> list[dict[str, Any]]:
     base = data_dir()
     if not base.is_dir():
@@ -84,7 +101,11 @@ def list_investors() -> list[dict[str, Any]]:
     for meta in base.glob("*/investor.json"):
         try:
             record = json.loads(meta.read_text(encoding="utf-8"))
-            investors.append({"slug": record["slug"], "name": record["name"], "approved_pack": None})
+            complete, open_questions = profile_progress(meta.parent)
+            investors.append({
+                "slug": record["slug"], "name": record["name"], "approved_pack": None,
+                "inputs_complete": complete, "open_questions": open_questions,
+            })
         except (OSError, ValueError, KeyError, TypeError):
             continue  # a damaged record must not hide every other investor
     return sorted(investors, key=lambda r: r["name"].lower())
@@ -103,7 +124,8 @@ def create_investor(slug: str, name: str) -> dict[str, Any]:
         raise InvestorExists(f"An investor with the profile ID '{slug}' already exists. Choose it from the list to edit it.") from None
     record = {"slug": slug, "name": name, "created_at": now_iso()}
     _atomic_write(path / "investor.json", (json.dumps(record, indent=2) + "\n").encode("utf-8"))
-    return {"slug": slug, "name": name, "approved_pack": None}
+    return {"slug": slug, "name": name, "approved_pack": None,
+            "inputs_complete": False, "open_questions": len(FIELD_KEYS)}
 
 
 def read_profile(slug: str) -> dict[str, Any] | None:
