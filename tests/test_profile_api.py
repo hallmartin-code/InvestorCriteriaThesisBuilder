@@ -171,5 +171,9 @@ def test_stored_notes_count_as_thesis_notes(client):
     assert "thesis_notes" not in asked(client.put(PROFILE, json=document({})).json())
 
 
-def test_screening_routes_are_still_not_built(client):
-    assert client.post("/api/investors/acme-capital/screen").status_code == 503
+def test_screening_is_closed_until_the_inputs_are_complete(client):
+    create(client)
+    response = client.post("/api/investors/acme-capital/screen",
+                           files=[("deck", ("deck.pdf", b"%PDF-1.7", "application/pdf"))])
+    assert response.status_code == 422
+    assert "Screening is closed" in response.json()["error"]

@@ -3,6 +3,54 @@
 Design decisions taken where the build spec (`CLAUDE.md`) was silent, and places where the spec
 met reality. Newest first.
 
+## 2026-09-16 - Result emails built
+
+**What shipped.** `src/icb/mail/` (Resend over stdlib HTTP, plus the per-trigger content), wired
+into criteria drafts, approvals, screenings and recorded decisions. Covered by
+`tests/test_mailer.py` with no network.
+
+**Decisions where the spec was silent**
+
+1. **Attachment trimming order is PDF-last.** Callers pass the PDF first and the JSON second, so
+   the JSON is dropped first; if the PDF alone still exceeds 30 MB after base64, it goes too and
+   the body says so.
+2. **Every email carries an idempotency key** derived from the trigger and the artifact, so a
+   retry or a double-click cannot send twice.
+3. **Email outcomes are recorded**: on the job (for the UI), in the run result, and in
+   `decisions.jsonl` as status plus message id. The key itself is never logged or returned.
+4. **A send failure never raises**: `pipeline._email` catches everything, so the artifacts and
+   the log always survive a Resend outage.
+5. **The web form's "Email this result" checkbox** maps to `send_email=False`, which reports
+   status `skipped` rather than pretending nothing was configured.
+
+**Not yet built:** review reports (§11), the Criteria Pack PDF, batch, and the `icb` CLI.
+
+## 2026-09-16 - Criteria packs and screening built
+
+**What shipped.** The standard is now written from the saved inputs and applied to decks:
+`criteria/` (build + approve, structural rules in code), `ingest/` (PDF sent whole; PPTX/DOCX as
+text), `screen/` (extraction, alignment, the five decision rules), `render/` (the one-page
+scorecard), `pipeline.py`, and the job endpoints.
+
+**Decisions where the spec was silent**
+
+1. **A pack cannot be built until every input is answered**, and cannot be approved while any
+   element carries `needs_input` or an open question. Both gates are in code.
+2. **The model never supplies labels, weights, floors or walk-away conditions.** `align()` copies
+   them from the pack, fills in results the model omitted, drops ids the pack does not define,
+   and clears any score whose evidence standard was not met.
+3. **Slide citations outside the deck's range are rejected**, which costs one correction retry.
+4. **Screening needs both gates**: complete inputs *and* an approved pack.
+5. **The scorecard's ownership-at-check cell** is computed from the deck's valuation and the
+   investor's check size, and is blank unless the deck states the valuation basis.
+6. **Artifacts** live in `investors/<slug>/scorecards/<Company>-<date>-<pack hash>.{pdf,json}`;
+   every screening and every recorded decision appends to `decisions.jsonl`.
+7. **New pins:** `anthropic==0.125.0`, `reportlab==5.0.0`, `pymupdf`, `python-pptx`,
+   `python-docx`, `pypdf`.
+
+**Not yet built:** result emails (§16), review reports (§11), the Criteria Pack PDF, batch, and
+the `icb` CLI.
+
 ## 2026-09-15 — Screening is closed until the inputs are complete
 
 **Decision (operator):** an investor cannot be screened until every §6 input is answered or

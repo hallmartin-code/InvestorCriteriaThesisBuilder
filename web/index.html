@@ -1150,6 +1150,17 @@
         </div>
       </form>
 
+      <div class="form-section" role="group" aria-labelledby="sec-pack">
+        <div class="section-head"><h2 class="section-title" id="sec-pack">6 · Criteria Pack</h2><span class="section-tag" id="pack-state">Not built</span></div>
+        <p class="hint" id="pack-note">The pack is written from the inputs above: the thesis, the hard criteria, the weighted factors and the deal-breakers every deck is screened against.</p>
+        <div id="pack-summary" hidden></div>
+        <div class="btn-row">
+          <button class="cta" type="button" id="pack-build" style="flex:1 1 220px">Build Criteria Pack</button>
+          <button class="btn" type="button" id="pack-approve" hidden>Approve pack</button>
+        </div>
+        <div class="status" id="pack-status" hidden></div>
+      </div>
+
       <p class="disclosure">This app is open to anyone with the link, so saved investor profiles can be seen by other visitors. Nothing on this form is sent to the Claude API until a Criteria Pack is built.</p>
     </section>
 
@@ -1305,7 +1316,8 @@
     const select = $("investor");
     try {
       state.investors = cfg.preview
-        ? [{ slug: "example", name: "Example Investor", approved_pack: null, inputs_complete: true, open_questions: 0 }]
+        ? [{ slug: "example", name: "Example Investor", inputs_complete: true, open_questions: 0,
+             approved_pack: { version: 1, hash: "0a1b2c3d4e5f6a7b" } }]
         : await api("/api/investors");
     } catch (err) {
       state.investors = [];
@@ -1338,6 +1350,7 @@
     const chip = $("pack-chip");
     const ready = Boolean(state.investor && state.investor.inputs_complete);
     const open = state.investor ? Number(state.investor.open_questions || 0) : 0;
+    const pack = state.investor && state.investor.approved_pack;
     const criteriaLink = (label) => {
       const a = document.createElement("a");
       a.href = "#criteria";
@@ -1352,9 +1365,13 @@
       chip.dataset.state = "none";
       chip.textContent = `Screening is closed: ${open} ${open === 1 ? "input" : "inputs"} still needed. `;
       chip.append(criteriaLink("Complete investor criteria"));
+    } else if (!pack) {
+      chip.dataset.state = "none";
+      chip.textContent = "Criteria complete, but no Criteria Pack is approved yet. ";
+      chip.append(criteriaLink("Build and approve the pack"));
     } else {
       chip.dataset.state = "approved";
-      chip.textContent = "Criteria complete · screening open";
+      chip.textContent = `Criteria Pack v${pack.version} · approved · #${String(pack.hash).slice(0, 8)}`;
     }
     updateSubmit();
   }
@@ -1386,7 +1403,8 @@
   }
 
   function updateSubmit() {
-    const ready = Boolean(state.file && state.investor && state.investor.inputs_complete);
+    const investor = state.investor;
+    const ready = Boolean(state.file && investor && investor.inputs_complete && investor.approved_pack);
     $("submit").disabled = !ready;
   }
 
@@ -2114,6 +2132,7 @@
     }
     refreshCriteria();
     state.criteriaDirty = false;
+    await loadPack(slug);
   }
 
   async function saveCriteria(event) {
@@ -2150,6 +2169,7 @@
         : "Saved. Every input is recorded, so the Criteria Pack can be built from these.");
       await loadInvestors();
       updateSlugHint(profile.slug);
+      await loadPack(state.criteriaSlug);
     } catch (err) {
       setCriteriaStatus("error", `Not saved: ${err.message} Your entries are kept in this browser.`);
     } finally {
@@ -2181,6 +2201,143 @@
     $("draft-note").textContent = "Entries are kept as a draft in this browser.";
     state.criteriaDirty = false;
   }
+
+  // ── criteria pack ────────────────────────────────────────────
+  function setPackStatus(tone, message) {
+    const el = $("pack-status");
+    if (!tone) { el.hidden = true; return; }
+    el.dataset.tone = tone;
+    el.textContent = message;
+    el.hidden = false;
+  }
+
+  function emailNote(email) {
+    if (!email) return "";
+    if (email.status === "sent") return ` Emailed to ${email.recipient}.`;
+    if (email.status === "failed") return ` The email could not be sent: ${email.reason}`;
+    return "";
+  }
+
+  function renderPack(summary) {
+    state.pack = summary || null;
+    const box = $("pack-summary");
+    const approve = $("pack-approve");
+    const build = $("pack-build");
+    box.textContent = "";
+    box.hidden = !summary;
+    approve.hidden = true;
+    build.textContent = summary ? "Rebuild Criteria Pack" : "Build Criteria Pack";
+    build.disabled = !state.criteriaSlug;
+    $("pack-state").textContent = summary ? `v${summary.version} · ${summary.status}` : "Not built";
+    if (!summary) return;
+
+    const line = (label, value) => {
+      const p = document.createElement("p");
+      p.className = "hint";
+      p.textContent = `${label}: ${value}`;
+      box.append(p);
+    };
+    line("Factors", summary.factors.map((f) => `${f.label} ${f.weight}%`).join(" · "));
+    line("Advance at", `${Number(summary.advance_threshold).toFixed(1)} of 5, with at most ${summary.max_unscored_weight_pct}% of weight unscored`);
+    line("Hard criteria", summary.hard_criteria.map((c) => c.label).join(" · ") || "none");
+    line("Deal-breakers", String(summary.deal_breakers));
+    line("Thesis", `${summary.thesis_words} words`);
+
+    if (summary.open_questions.length) {
+      const heading = document.createElement("p");
+      heading.className = "hint";
+      heading.textContent = `${summary.open_questions.length} question${summary.open_questions.length === 1 ? "" : "s"} must be answered before this pack can be approved:`;
+      const list = document.createElement("ol");
+      summary.open_questions.forEach((question) => {
+        const li = document.createElement("li");
+        li.textContent = question;
+        list.append(li);
+      });
+      list.className = "hint";
+      box.append(heading, list);
+    } else if (summary.status === "draft") {
+      approve.hidden = false;
+    }
+  }
+
+  async function loadPack(slug) {
+    renderPack(null);
+    if (!slug || cfg.preview) return;
+    for (const status of ["approved", "draft"]) {
+      try {
+        const body = await api(`/api/investors/${encodeURIComponent(slug)}/criteria/${status}`);
+        renderPack(body.summary);
+        return;
+      } catch { /* no pack of that kind yet */ }
+    }
+  }
+
+  async function buildPack() {
+    if (!state.criteriaSlug) {
+      setPackStatus("warn", "Save the investor's criteria first; the pack is built from them.");
+      return;
+    }
+    if (cfg.preview) {
+      setPackStatus("warn", "Preview mode: the pack is built by the server.");
+      return;
+    }
+    const button = $("pack-build");
+    button.disabled = true;
+    setPackStatus("ok", "Writing the pack from these inputs. This takes a minute or two.");
+    try {
+      const { job_id } = await api(`/api/investors/${encodeURIComponent(state.criteriaSlug)}/criteria/build`, { method: "POST" });
+      const summary = await pollJob(job_id);
+      renderPack(summary);
+      setPackStatus(summary.open_questions.length ? "warn" : "ok",
+        (summary.open_questions.length
+          ? `Draft v${summary.version} written. ${summary.open_questions.length} question(s) must be answered before it can be approved.`
+          : `Draft v${summary.version} written. Review it, then approve.`) + emailNote(summary.email));
+    } catch (err) {
+      setPackStatus("error", err.message);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function approvePack() {
+    const button = $("pack-approve");
+    button.disabled = true;
+    try {
+      const summary = await api(`/api/investors/${encodeURIComponent(state.criteriaSlug)}/criteria/approve`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      renderPack(summary);
+      setPackStatus("ok", `Criteria Pack v${summary.version} approved. Screening is now open for this investor.`
+        + emailNote(summary.email));
+      await loadInvestors();
+    } catch (err) {
+      setPackStatus("error", err.message);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function pollJob(jobId, onStage) {
+    return new Promise((resolve, reject) => {
+      let errors = 0;
+      const tick = async () => {
+        try {
+          const job = await api(`/api/jobs/${encodeURIComponent(jobId)}`);
+          errors = 0;
+          if (onStage && job.stage) onStage(job.stage);
+          if (job.state === "done") return resolve(job.result);
+          if (job.state === "failed") return reject(new Error(job.error || "The run did not complete."));
+        } catch (err) {
+          errors += 1;
+          if (errors >= MAX_POLL_ERRORS) return reject(new Error(`Lost contact with the server: ${err.message}`));
+        }
+        setTimeout(tick, POLL_MS);
+      };
+      setTimeout(tick, POLL_MS);
+    });
+  }
+
+  $("pack-build").addEventListener("click", buildPack);
+  $("pack-approve").addEventListener("click", approvePack);
 
   // criteria events
   const criteriaForm = $("criteria-form");
@@ -2229,7 +2386,7 @@
       || Object.values(draft.profile.fields || {}).some((entry) => entry.status !== "not_provided");
   }
   refreshCriteria(false);
-  loadInvestors();
+  loadInvestors().then(() => loadPack(state.criteriaSlug));
 })();
 </script>
 

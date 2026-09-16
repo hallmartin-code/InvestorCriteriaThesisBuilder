@@ -2,8 +2,14 @@
 # ../deckpager/requirements.txt where they overlap; loose bounds once pulled a breaking major
 # into production. Phase 7 adds the analysis dependencies (anthropic, reportlab, ...) with exact pins.
 
+anthropic==0.125.0
 fastapi==0.141.1
 uvicorn[standard]==0.52.4
 python-multipart==0.0.32
 pydantic==2.13.4
 pyyaml==6.0.3
+reportlab==5.0.0
+pymupdf==1.28.2
+python-docx==1.2.0
+python-pptx==1.0.2
+pypdf==6.16.1

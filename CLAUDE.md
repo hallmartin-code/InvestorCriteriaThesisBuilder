@@ -439,8 +439,12 @@ opt-in live test.
   render → log.
 - **Phase 6 — Consistency and review.** `decide`, `redraw`, `batch`, `review`,
   `criteria revise`. Also the Criteria Pack PDF.
-- **Phase 6b — Result emails.** Build `mail/` and `test_mailer` per §16, and wire them into
-  the CLI. Send the first real email only after I approve it.
+- **Phases 2-5 and the job API are built** (2026-09-16): `src/icb/{llm,criteria,ingest,screen,render}/`,
+  `src/icb/pipeline.py`, and the endpoints in `app.py`, covered by `tests/test_criteria.py`,
+  `test_decision.py`, `test_screen.py`, `test_render.py` and `test_end_to_end.py`.
+- **Phase 6b — Result emails: built** (2026-09-16). `src/icb/mail/` and `tests/test_mailer.py`;
+  wired into criteria builds, approvals, screenings and recorded decisions. No real email has
+  been sent yet — the operator triggers the first one.
 - **Phase 7 — Web app.** Build `app.py` and the job API. Wire the existing `web/index.html`
   prototype to them, then add auth, persistence checks, and `test_web`, per §15. Run it locally with `uvicorn app:app --reload` against the
   real API, and screen one real deck end to end through the browser.
@@ -471,11 +475,10 @@ otherwise.
   - the UI, with injected config
   - the icons, `/favicon.ico`, and `/healthz`
 
-  The investor list/create and profile routes are live (`src/icb/profile/`,
-  `tests/test_profile_api.py`). Every other `/api/*` route answers 503 until Phase 7
-  implements it, and
-  `tests/test_app_shell.py` covers the shell. Extend this file rather than replacing it, and
-  keep its health check.
+  Live: investors, profiles, criteria build/approve, screening jobs, scorecard downloads,
+  recorded decisions, and result emails (§16). Still answering 503: review reports (§11),
+  the Criteria Pack PDF, and batch. Extend this file rather than replacing it, and keep its
+  health check.
 - `src/icb/pipeline.py` is the only place analysis logic lives. `cli.py` and `app.py` are thin
   wrappers, so the two front ends cannot drift apart.
 - `web/index.html` is the whole UI, with no frontend framework. It already exists as a

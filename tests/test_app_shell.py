@@ -34,7 +34,9 @@ def test_open_on_railway_even_if_a_password_variable_lingers(client, monkeypatch
     monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
     monkeypatch.setenv("APP_PASSWORD", "left-over")
     assert client.get("/").status_code == 200
-    assert client.get("/api/jobs/example").status_code == 503  # not built yet, but not a login wall
+    unknown_job = client.get("/api/jobs/example")
+    assert unknown_job.status_code == 404  # an answer, not a login wall
+    assert "WWW-Authenticate" not in unknown_job.headers
 
 
 def test_config_is_injected_and_cannot_break_out_of_script(client, monkeypatch):
@@ -56,7 +58,7 @@ def test_health_reports_state_without_secrets(client, monkeypatch):
     body = response.json()
     assert response.status_code == 200
     assert body["api_key_set"] is True
-    assert body["analysis_available"] is False
+    assert body["analysis_available"] is True  # a key is configured, so screening can run
     assert "auth_enabled" not in body
     assert "sentinel" not in response.text
 
@@ -82,7 +84,7 @@ def test_icons_are_referenced_and_load(client):
         assert client.get("/public/" + icon["src"]).content[:4] == b"\x89PNG", icon["src"]
 
 
-def test_api_answers_not_built(client):
-    response = client.get("/api/jobs/example")
+def test_routes_that_are_still_unbuilt_say_so(client):
+    response = client.post("/api/investors/acme-capital/review")  # §11 review reports come later
     assert response.status_code == 503
     assert "not deployed yet" in response.json()["error"]

@@ -103,7 +103,8 @@ def list_investors() -> list[dict[str, Any]]:
             record = json.loads(meta.read_text(encoding="utf-8"))
             complete, open_questions = profile_progress(meta.parent)
             investors.append({
-                "slug": record["slug"], "name": record["name"], "approved_pack": None,
+                "slug": record["slug"], "name": record["name"],
+                "approved_pack": approved_pack_summary(meta.parent),
                 "inputs_complete": complete, "open_questions": open_questions,
             })
         except (OSError, ValueError, KeyError, TypeError):
@@ -149,6 +150,146 @@ def note_files(slug: str) -> list[str]:
     if not notes.is_dir():
         return []
     return sorted(p.name for p in notes.iterdir() if p.is_file() and not p.name.startswith("."))
+
+
+def note_texts(slug: str) -> list[tuple[str, str]]:
+    """Thesis materials as (filename, text). Unreadable files are skipped, not fatal."""
+    notes = investor_path(slug) / "notes"
+    out: list[tuple[str, str]] = []
+    for name in note_files(slug):
+        try:
+            out.append((name, _extract_text(notes / name)))
+        except Exception:  # a damaged attachment must not block a build
+            continue
+    return [(name, text) for name, text in out if text.strip()]
+
+
+def _extract_text(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in {".md", ".txt"}:
+        return path.read_text(encoding="utf-8", errors="replace")
+    if suffix == ".pdf":
+        import pymupdf  # imported lazily: only note ingestion needs it
+
+        with pymupdf.open(path) as document:
+            return "\n\n".join(page.get_text() for page in document)
+    if suffix == ".docx":
+        import docx  # python-docx
+
+        return "\n".join(paragraph.text for paragraph in docx.Document(str(path)).paragraphs)
+    return ""
+
+
+# --- criteria packs -------------------------------------------------------------------------
+
+CRITERIA_STATUSES = ("draft", "approved")
+
+
+def criteria_dir(slug: str) -> Path:
+    return investor_path(slug) / "criteria"
+
+
+def _criteria_file(slug: str, version: int, status: str) -> Path:
+    if status not in CRITERIA_STATUSES:
+        raise InvalidInput("A Criteria Pack is either a draft or approved.")
+    return criteria_dir(slug) / f"v{version}.{status}.json"
+
+
+def criteria_versions(slug: str, status: str = "draft") -> list[int]:
+    directory = criteria_dir(slug)
+    if not directory.is_dir():
+        return []
+    versions = []
+    for path in directory.glob(f"v*.{status}.json"):
+        try:
+            versions.append(int(path.name.split(".")[0][1:]))
+        except ValueError:
+            continue
+    return sorted(versions)
+
+
+def next_criteria_version(slug: str) -> int:
+    seen = criteria_versions(slug, "draft") + criteria_versions(slug, "approved")
+    return (max(seen) + 1) if seen else 1
+
+
+def write_criteria(slug: str, pack: dict[str, Any]) -> None:
+    """Approved packs are immutable: an existing approved file is never overwritten."""
+    version, status = int(pack["version"]), str(pack["status"])
+    path = _criteria_file(slug, version, status)
+    if status == "approved" and path.is_file():
+        raise InvalidInput(f"Criteria Pack v{version} is already approved and cannot be changed.")
+    _atomic_write(path, (json.dumps(pack, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+
+
+def read_criteria(slug: str, version: int | None = None, status: str = "draft") -> dict[str, Any] | None:
+    if version is None:
+        versions = criteria_versions(slug, status)
+        if not versions:
+            return None
+        version = versions[-1]
+    path = _criteria_file(slug, version, status)
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def approved_pack_summary(path: Path) -> dict[str, Any] | None:
+    """{version, hash} of the newest approved pack, for the investor list. None when there is none."""
+    directory = path / "criteria"
+    if not directory.is_dir():
+        return None
+    best: tuple[int, dict[str, Any]] | None = None
+    for file in directory.glob("v*.approved.json"):
+        try:
+            version = int(file.name.split(".")[0][1:])
+            pack = json.loads(file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if best is None or version > best[0]:
+            best = (version, pack)
+    if best is None:
+        return None
+    version, pack = best
+    return {"version": version, "hash": pack.get("content_hash", ""), "approved_at": pack.get("approved_at")}
+
+
+def write_scorecard(slug: str, stem: str, pdf: bytes, payload: dict[str, Any]) -> dict[str, str]:
+    """Store one screening's artifacts; returns their paths."""
+    directory = investor_path(slug) / "scorecards"
+    name = _safe_filename(stem) or "scorecard"
+    _atomic_write(directory / f"{name}.pdf", pdf)
+    _atomic_write(directory / f"{name}.json", (json.dumps(payload, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+    return {"pdf": str(directory / f"{name}.pdf"), "json": str(directory / f"{name}.json")}
+
+
+def read_scorecard(slug: str, name: str, suffix: str) -> Path:
+    path = investor_path(slug) / "scorecards" / f"{_safe_filename(name)}.{suffix}"
+    if not path.is_file():
+        raise InvestorNotFound("That scorecard is no longer available.")
+    return path
+
+
+def append_decision(slug: str, entry: dict[str, Any]) -> None:
+    """The decision log is append-only; earlier lines are never rewritten."""
+    path = investor_path(slug) / "decisions.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps(entry, ensure_ascii=False) + "\n"
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(line)
+
+
+def read_decisions(slug: str) -> list[dict[str, Any]]:
+    path = investor_path(slug) / "decisions.jsonl"
+    if not path.is_file():
+        return []
+    entries = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            entries.append(json.loads(line))
+        except ValueError:
+            continue
+    return entries
 
 
 def _safe_filename(original: str) -> str:

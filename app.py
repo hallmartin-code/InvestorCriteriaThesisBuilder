@@ -11,9 +11,11 @@ Railway: python app.py   (see railway.json)
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+import secrets
 import shutil
 import sys
 import time
@@ -23,7 +25,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, Request, Response, UploadFile
+from fastapi import FastAPI, File, Form, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -37,6 +39,8 @@ WEB_DIR = ROOT / "web"
 PUBLIC_DIR = WEB_DIR / "public"
 
 sys.path.insert(0, str(ROOT / "src"))  # src/icb is importable without installing the package
+from icb import pipeline  # noqa: E402
+from icb.criteria import build as criteria_files  # noqa: E402
 from icb.profile import store, validate  # noqa: E402
 from icb.profile.models import ProfileDocument  # noqa: E402
 
@@ -189,7 +193,7 @@ def healthz(deep: bool = False) -> dict[str, object]:
         "data_dir_persistent": data_dir_persistent(),
         "soffice_available": soffice_available(),
         "email_enabled": email_enabled(),
-        "analysis_available": False,
+        "analysis_available": bool(os.getenv("ANTHROPIC_API_KEY")),
     }
     if deep:
         body["api_key_valid"] = api_key_valid()
@@ -274,6 +278,177 @@ async def notes_post(slug: str, files: list[UploadFile] = File(...)) -> dict[str
     uploads = [(upload.filename or "", await upload.read(limit + 1)) for upload in files]
     saved = store.save_notes(slug, uploads, limit)
     return {"saved": saved, "files": store.note_files(slug)}
+
+
+# --- jobs: model calls run in the background, the client polls (§15) ----------------------
+
+JOBS: dict[str, dict[str, Any]] = {}
+_TASKS: set[asyncio.Task[Any]] = set()
+_SEMAPHORE: asyncio.Semaphore | None = None
+
+
+def _limit() -> asyncio.Semaphore:
+    global _SEMAPHORE
+    if _SEMAPHORE is None:
+        try:
+            concurrency = max(1, int(os.getenv("MAX_CONCURRENT_JOBS", "2")))
+        except ValueError:
+            concurrency = 2
+        _SEMAPHORE = asyncio.Semaphore(concurrency)
+    return _SEMAPHORE
+
+
+def _sweep_jobs() -> None:
+    try:
+        ttl = max(1, int(os.getenv("JOB_TTL_MINUTES", "180")))
+    except ValueError:
+        ttl = 180
+    cutoff = time.time() - ttl * 60
+    for job_id in [key for key, job in JOBS.items() if job["created_at"] < cutoff]:
+        JOBS.pop(job_id, None)
+
+
+def _start(kind: str, slug: str, work: Callable[[dict[str, Any]], dict[str, Any]], stage: str) -> dict[str, str]:
+    _sweep_jobs()
+    job_id = secrets.token_urlsafe(12)
+    job = {"id": job_id, "kind": kind, "slug": slug, "state": "queued", "stage": stage, "progress": 0,
+           "error": None, "result": None, "email": None, "artifacts": {}, "created_at": time.time()}
+    JOBS[job_id] = job
+
+    async def run() -> None:
+        async with _limit():
+            job["state"] = "running"
+            try:
+                job["result"] = await asyncio.to_thread(work, job)
+                job["state"] = "done"
+            except store.StoreError as exc:
+                job.update(state="failed", error=str(exc))
+            except Exception as exc:  # one readable sentence, never a traceback
+                log.exception("%s job failed", kind)
+                job.update(state="failed", error=_readable_failure(exc))
+
+    task = asyncio.create_task(run())
+    _TASKS.add(task)  # asyncio only keeps a weak reference
+    task.add_done_callback(_TASKS.discard)
+    return {"job_id": job_id}
+
+
+def _readable_failure(exc: Exception) -> str:
+    from icb.ingest.router import DeckError
+    from icb.llm.client import ModelError
+    from icb.render.scorecard import OnePageError
+
+    if isinstance(exc, (DeckError, ModelError, OnePageError)):
+        return str(exc)
+    return "The run failed. Nothing was saved."
+
+
+def _job(job_id: str) -> dict[str, Any]:
+    job = JOBS.get(job_id)
+    if job is None:
+        raise store.InvestorNotFound("That job has expired or never existed.")
+    return job
+
+
+# --- criteria packs (§7) -------------------------------------------------------------------
+
+
+@app.post("/api/investors/{slug}/criteria/build")
+async def criteria_build(slug: str) -> dict[str, str]:  # async: _start needs the running event loop
+    store.investor_path(slug)
+    pipeline.require_complete_inputs(slug)
+    def work(job: dict[str, Any]) -> dict[str, Any]:
+        summary = pipeline.build_criteria(slug)
+        job["email"] = summary.get("email")
+        return summary
+
+    return _start("criteria", slug, work, stage="building")
+
+
+@app.get("/api/investors/{slug}/criteria/draft")
+def criteria_draft(slug: str) -> dict[str, Any]:
+    pack = criteria_files.load_pack(slug, status="draft")
+    return {"summary": pack.summary(), "draft": pack.draft.model_dump(mode="json")}
+
+
+@app.get("/api/investors/{slug}/criteria/approved")
+def criteria_approved(slug: str) -> dict[str, Any]:
+    pack = criteria_files.load_pack(slug, status="approved")
+    return {"summary": pack.summary(), "draft": pack.draft.model_dump(mode="json")}
+
+
+@app.post("/api/investors/{slug}/criteria/approve")
+async def criteria_approve(slug: str, request: Request) -> dict[str, Any]:
+    payload = await json_body(request, 4096)
+    version = (payload or {}).get("version") if isinstance(payload, dict) else None
+    return pipeline.approve_criteria(slug, version=int(version) if version else None)
+
+
+# --- screening (§8-§10) --------------------------------------------------------------------
+
+
+@app.post("/api/investors/{slug}/screen")
+async def screen_deck(slug: str, deck: UploadFile = File(...), email: str = Form("true")) -> dict[str, str]:
+    store.investor_path(slug)
+    pipeline.require_complete_inputs(slug)
+    pipeline.approved_pack(slug)  # 409-style refusal before the upload is accepted
+
+    wants_email = str(email).strip().lower() not in {"false", "0", "no", "off"}
+    limit = max_upload_mb() * 1024 * 1024
+    data = await deck.read(limit + 1)
+    if len(data) > limit:
+        raise store.InvalidInput(f"That deck is larger than the {max_upload_mb()} MB limit.")
+    filename = deck.filename or "deck"
+
+    def work(job: dict[str, Any]) -> dict[str, Any]:
+        def progress(stage: str) -> None:
+            job["stage"] = stage
+
+        outcome = pipeline.screen(slug, filename, data, send_email=wants_email, on_progress=progress)
+        job["artifacts"] = outcome.paths
+        job["email"] = outcome.email
+        return outcome.summary()
+
+    return _start("screening", slug, work, stage="reading")
+
+
+@app.get("/api/jobs/{job_id}")
+def job_status(job_id: str) -> dict[str, Any]:
+    job = _job(job_id)
+    return {key: job[key] for key in ("id", "state", "stage", "progress", "error", "result", "email")}
+
+
+@app.get("/api/jobs/{job_id}/pdf")
+def job_pdf(job_id: str) -> FileResponse:
+    job = _job(job_id)
+    path = job["artifacts"].get("pdf")
+    if not path:
+        raise store.InvestorNotFound("That job has no scorecard.")
+    return FileResponse(path, media_type="application/pdf", filename=Path(path).name)
+
+
+@app.get("/api/jobs/{job_id}/json")
+def job_json(job_id: str) -> FileResponse:
+    job = _job(job_id)
+    path = job["artifacts"].get("json")
+    if not path:
+        raise store.InvestorNotFound("That job has no extraction.")
+    return FileResponse(path, media_type="application/json", filename=Path(path).name)
+
+
+@app.post("/api/investors/{slug}/decisions")
+async def record_decision(slug: str, request: Request) -> dict[str, Any]:
+    payload = await json_body(request, 8192)
+    if not isinstance(payload, dict):
+        raise store.InvalidInput("Send the decision as JSON.")
+    name = payload.get("name")
+    if not name and payload.get("job_id"):
+        name = (_job(str(payload["job_id"]))["result"] or {}).get("name")
+    if not name:
+        raise store.InvalidInput("That screening is no longer available; screen the deck again.")
+    return pipeline.record_decision(
+        slug, str(name), str(payload.get("final_decision") or ""), str(payload.get("reviewer_initials") or ""),
+        payload.get("exception_reason"))
 
 
 @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
