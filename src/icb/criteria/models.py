@@ -16,7 +16,7 @@ import re
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Short = Annotated[str, Field(max_length=200)]
 Text = Annotated[str, Field(max_length=5_000)]
@@ -31,6 +31,20 @@ class Grounded(_Strict):
     grounded_in: Annotated[list[Short], Field(max_length=20)] = []
     needs_input: Short | None = None
 
+    @field_validator("grounded_in", mode="before")
+    @classmethod
+    def _split_paths(cls, value: Any) -> Any:
+        """The schema asks for a comma-separated string (nested arrays enlarge the grammar)."""
+        if isinstance(value, str):
+            return [part.strip() for part in value.split(",") if part.strip()]
+        return value
+
+    # The builder schema carries no nullable types (an API limit): "" means "nothing to ask".
+    @field_validator("needs_input", mode="before")
+    @classmethod
+    def _blank_is_none(cls, value: Any) -> Any:
+        return None if isinstance(value, str) and not value.strip() else value
+
 
 class Thesis(Grounded):
     text: Text = ""
@@ -40,12 +54,21 @@ class Thesis(Grounded):
         return len(re.findall(r"\b[\w'-]+\b", self.text))
 
 
+def _split_list(value: Any) -> Any:
+    """Evidence types arrive comma-separated; nested arrays enlarge the compiled grammar."""
+    if isinstance(value, str):
+        return [part.strip() for part in value.split(",") if part.strip()]
+    return value
+
+
 class HardCriterion(Grounded):
     criterion_id: Ident
     label: Short
     requirement: Short
     test: Text
     evidence_required: Annotated[list[Short], Field(max_length=10)] = []
+
+    _split = field_validator("evidence_required", mode="before")(_split_list)
 
 
 class RubricLevel(_Strict):
@@ -62,6 +85,31 @@ class Factor(Grounded):
     rubric: list[RubricLevel]
     floor: Annotated[int, Field(ge=1, le=5)] | None = None
     evidence_required: Annotated[list[Short], Field(max_length=10)] = []
+
+    _split = field_validator("evidence_required", mode="before")(_split_list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _rubric_from_fields(cls, data: Any) -> Any:
+        """The schema asks for rubric_1..rubric_5 (no nested arrays)."""
+        if isinstance(data, dict) and "rubric_1" in data:
+            data = dict(data)
+            data.setdefault("rubric", [{"score": score, "evidence": data.pop(f"rubric_{score}", "")}
+                                       for score in range(1, 6)])
+        return data
+
+    @field_validator("rubric", mode="before")
+    @classmethod
+    def _levels_from_strings(cls, value: Any) -> Any:
+        """A plain list of five strings, lowest first, is also accepted."""
+        if isinstance(value, list) and value and all(isinstance(item, str) for item in value):
+            return [{"score": index, "evidence": text} for index, text in enumerate(value, start=1)]
+        return value
+
+    @field_validator("floor", mode="before")
+    @classmethod
+    def _zero_is_none(cls, value: Any) -> Any:
+        return None if value in (0, "", "0") else value
 
     @model_validator(mode="after")
     def _five_distinct_levels(self) -> Factor:
@@ -107,6 +155,49 @@ class CriteriaDraft(_Strict):
     max_unscored_weight_pct: Annotated[int, Field(ge=0, le=100)]
     open_questions: Annotated[list[Short], Field(max_length=40)] = []
     not_applied: Annotated[list[Short], Field(max_length=40)] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_flat_schema(cls, data: Any) -> Any:
+        """The builder schema is flattened to keep the compiled grammar small; rebuild the document."""
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+
+        if "advance_threshold_tenths" in data:
+            tenths = data.pop("advance_threshold_tenths")
+            data.setdefault("advance_threshold", round(float(tenths) / 10, 2) if tenths else 0)
+
+        if "thesis_text" in data:
+            data.setdefault("thesis", {"text": data.pop("thesis_text"),
+                                       "grounded_in": data.pop("thesis_grounded_in", ""),
+                                       "needs_input": data.pop("thesis_needs_input", "")})
+
+        if "review_triggers" in data or "review_versioning" in data:
+            data.setdefault("review_cadence", {
+                "triggers": data.pop("review_triggers", []),
+                "min_sample_size": data.pop("review_min_sample_size", 10) or 10,
+                "outcome_data": data.pop("review_outcome_data", []),
+                "versioning": data.pop("review_versioning", ""),
+            })
+
+        if isinstance(data.get("findings"), list):
+            breakers, concerns = [], []
+            for finding in data.pop("findings"):
+                if not isinstance(finding, dict):
+                    continue
+                shared = {key: finding.get(key, "") for key in ("grounded_in", "needs_input")}
+                if finding.get("kind") == "concern":
+                    concerns.append({"concern_id": finding.get("id", ""), "factor_id": finding.get("factor_id", ""),
+                                     "condition": finding.get("condition", ""),
+                                     "consequence": finding.get("detail", ""), **shared})
+                else:
+                    breakers.append({"deal_breaker_id": finding.get("id", ""),
+                                     "walk_away_condition": finding.get("condition", ""),
+                                     "trigger": finding.get("detail", ""), **shared})
+            data.setdefault("deal_breakers", breakers)
+            data.setdefault("concerns", concerns)
+        return data
 
     @model_validator(mode="after")
     def _structure(self) -> CriteriaDraft:
@@ -204,52 +295,69 @@ def _obj(properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
 
 
 _STR = {"type": "string"}
+# No nullable or union types, and as few nested object types as possible: the API rejects
+# schemas with many unions or an over-large compiled grammar.
 _GROUNDING = {
     "grounded_in": {"type": "array", "items": _STR,
                     "description": "Profile field paths this element derives from, e.g. fields.check_size."},
-    "needs_input": {"type": ["string", "null"],
-                    "description": "One specific question for the investor when this cannot be grounded; null otherwise."},
+    "needs_input": {**_STR,
+                    "description": "One specific question for the investor when this cannot be grounded; "
+                                   "empty string otherwise."},
+}
+
+_GROUNDED_FLAT = {
+    "grounded_in": {**_STR, "description": "Comma-separated profile field paths, e.g. fields.check_size, fields.stages."},
+    "needs_input": {**_STR, "description": "One specific question for the investor when this cannot be grounded; "
+                                           "empty string otherwise."},
 }
 
 DRAFT_SCHEMA: dict[str, Any] = _obj(
     {
-        "thesis": _obj({**_GROUNDING, "text": {**_STR, "description": "150-250 words."}}, ["text", "grounded_in", "needs_input"]),
+        "thesis_text": {**_STR, "description": "150-250 words: the belief, the mispricing, the edge, why now."},
+        "thesis_grounded_in": _GROUNDED_FLAT["grounded_in"],
+        "thesis_needs_input": _GROUNDED_FLAT["needs_input"],
         "hard_criteria": {"type": "array", "items": _obj(
-            {**_GROUNDING, "criterion_id": _STR, "label": _STR, "requirement": _STR, "test": _STR,
-             "evidence_required": {"type": "array", "items": _STR}},
+            {**_GROUNDED_FLAT, "criterion_id": _STR, "label": _STR, "requirement": _STR, "test": _STR,
+             "evidence_required": {**_STR, "description": "Comma-separated evidence types."}},
             ["criterion_id", "label", "requirement", "test", "evidence_required", "grounded_in", "needs_input"])},
         "factors": {"type": "array", "items": _obj(
-            {**_GROUNDING, "factor_id": _STR, "label": _STR,
+            {**_GROUNDED_FLAT, "factor_id": _STR, "label": _STR,
              "short_label": {**_STR, "description": "At most 12 characters."},
              "weight": {"type": "integer", "description": "Integer; all weights sum to 100."},
              "weight_rationale": _STR,
-             "rubric": {"type": "array", "description": "Exactly five levels, scores 1-5.", "items": _obj(
-                 {"score": {"type": "integer"}, "evidence": _STR}, ["score", "evidence"])},
-             "floor": {"type": ["integer", "null"]},
-             "evidence_required": {"type": "array", "items": _STR}},
-            ["factor_id", "label", "short_label", "weight", "weight_rationale", "rubric", "floor",
-             "evidence_required", "grounded_in", "needs_input"])},
-        "deal_breakers": {"type": "array", "items": _obj(
-            {**_GROUNDING, "deal_breaker_id": _STR, "walk_away_condition": _STR, "trigger": _STR},
-            ["deal_breaker_id", "walk_away_condition", "trigger", "grounded_in", "needs_input"])},
-        "concerns": {"type": "array", "items": _obj(
-            {**_GROUNDING, "concern_id": _STR, "factor_id": _STR, "condition": _STR, "consequence": _STR},
-            ["concern_id", "factor_id", "condition", "consequence", "grounded_in", "needs_input"])},
+             "rubric_1": {**_STR, "description": "Observable evidence for score 1."},
+             "rubric_2": {**_STR, "description": "Observable evidence for score 2."},
+             "rubric_3": {**_STR, "description": "Observable evidence for score 3."},
+             "rubric_4": {**_STR, "description": "Observable evidence for score 4."},
+             "rubric_5": {**_STR, "description": "Observable evidence for score 5."},
+             "floor": {"type": "integer", "description": "Minimum acceptable score for this factor, or 0 for none."},
+             "evidence_required": {**_STR, "description": "Comma-separated evidence types."}},
+            ["factor_id", "label", "short_label", "weight", "weight_rationale", "rubric_1", "rubric_2",
+             "rubric_3", "rubric_4", "rubric_5", "floor", "evidence_required", "grounded_in", "needs_input"])},
+        "findings": {"type": "array",
+                     "description": "Deal-breakers (walk away) and concerns (lower one named factor).",
+                     "items": _obj(
+            {**_GROUNDED_FLAT, "kind": {"type": "string", "enum": ["deal_breaker", "concern"]},
+             "id": {**_STR, "description": "deal_breaker_id or concern_id."},
+             "factor_id": {**_STR, "description": "For a concern, the factor it lowers; empty for a deal-breaker."},
+             "condition": {**_STR, "description": "The walk-away condition, or the concern's condition."},
+             "detail": {**_STR, "description": "The observable trigger, or the consequence."}},
+            ["kind", "id", "factor_id", "condition", "detail", "grounded_in", "needs_input"])},
         "consistency_controls": {"type": "array", "items": _STR},
         "bias_checks": {"type": "array", "items": _STR},
         "exception_procedure": _STR,
-        "review_cadence": _obj(
-            {**_GROUNDING, "triggers": {"type": "array", "items": _STR},
-             "min_sample_size": {"type": "integer"},
-             "outcome_data": {"type": "array", "items": _STR},
-             "versioning": _STR},
-            ["triggers", "min_sample_size", "outcome_data", "versioning", "grounded_in", "needs_input"]),
-        "advance_threshold": {"type": "number", "description": "Weighted 1.0-5.0."},
+        "review_triggers": {"type": "array", "items": _STR},
+        "review_min_sample_size": {"type": "integer"},
+        "review_outcome_data": {"type": "array", "items": _STR},
+        "review_versioning": _STR,
+        "advance_threshold_tenths": {"type": "integer",
+                                     "description": "The weighted score needed to advance, in tenths: 35 means 3.5."},
         "max_unscored_weight_pct": {"type": "integer"},
         "open_questions": {"type": "array", "items": _STR},
         "not_applied": {"type": "array", "items": _STR},
     },
-    ["thesis", "hard_criteria", "factors", "deal_breakers", "concerns", "consistency_controls", "bias_checks",
-     "exception_procedure", "review_cadence", "advance_threshold", "max_unscored_weight_pct",
+    ["thesis_text", "thesis_grounded_in", "thesis_needs_input", "hard_criteria", "factors", "findings",
+     "consistency_controls", "bias_checks", "exception_procedure", "review_triggers", "review_min_sample_size",
+     "review_outcome_data", "review_versioning", "advance_threshold_tenths", "max_unscored_weight_pct",
      "open_questions", "not_applied"],
 )

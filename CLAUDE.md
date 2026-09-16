@@ -99,10 +99,20 @@ Ask before adding any dependency not listed here.
 - Default model: `claude-opus-5`, overridable with `--model` or `ICB_MODEL`. Stream the
   response, use adaptive thinking, and set `output_config.effort` (default `high`).
 - Do not send `temperature`, `top_p`, or `thinking.budget_tokens`. This model rejects them.
-- Use structured outputs via `output_config.format`, with a JSON schema generated from the
-  pydantic models. Never regex JSON out of prose. Check the skill for which JSON-schema
-  keywords structured outputs support. Enforce the rest (e.g. weights summing to 100) in
-  pydantic validators.
+- Use structured outputs via `output_config.format`: `{"type": "json_schema", "schema": ...}`
+  and **no other keys** — a `name` key is rejected with a 400. Never regex JSON out of prose.
+- **The schema is compiled into a grammar with a hard size limit** (measured 2026-09-16 on
+  `claude-opus-5`, guarded by `tests/test_schemas.py`):
+  - **Arrays of objects are the expensive construct**: 6 were accepted, 10 were rejected.
+  - **At most 16 union or nullable parameters**; use `""` or `0` for "not stated" and convert
+    in a pydantic `mode="before"` validator instead.
+  - Plain strings, integers, enums and arrays of strings are cheap; floats are not.
+  - So the two schemas are flat: one repeated snapshot shape rather than twelve named ones,
+    deal-breakers and concerns merged into one `findings` list with a `kind` enum, rubric
+    levels as `rubric_1..rubric_5`, and evidence, bias flags and requests as `"a | b | c"`
+    strings the models parse back.
+- Enforce everything else (weights summing to 100, five rubric levels, word counts) in pydantic
+  validators, not in the schema.
 - `icb check` and `GET /healthz?deep=1` verify the key with `client.models.list()`, which
   costs no tokens. Report only whether the key is set and valid, never its value.
 - Retry 429/5xx with exponential backoff (max 4 attempts). On a validation error, retry once

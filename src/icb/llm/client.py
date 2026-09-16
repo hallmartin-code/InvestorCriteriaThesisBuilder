@@ -12,6 +12,7 @@ retried once with the error appended as a correction turn, then it fails loudly.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -24,8 +25,21 @@ DEFAULT_EFFORT = "high"
 MAX_TOKENS = 32_000  # streamed, so no HTTP-timeout concern
 
 
+log = logging.getLogger("icb.llm")
+
+
 class ModelError(RuntimeError):
     """The model could not be called, or did not return usable output."""
+
+
+def _api_detail(exc: anthropic.APIStatusError) -> str:
+    """The API's own sentence, so a rejected request says what was wrong."""
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        error = body.get("error")
+        if isinstance(error, dict) and error.get("message"):
+            return str(error["message"])[:300]
+    return str(getattr(exc, "message", "") or "no detail given")[:300]
 
 
 @dataclass(frozen=True)
@@ -98,7 +112,8 @@ def call_json(
                 thinking={"type": "adaptive"},
                 output_config={
                     "effort": effort(),
-                    "format": {"type": "json_schema", "name": schema_name, "schema": schema},
+                    # `format` takes only type and schema; a `name` key is rejected with a 400.
+                    "format": {"type": "json_schema", "schema": schema},
                 },
             ) as stream:
                 for _ in stream.text_stream:
@@ -106,7 +121,9 @@ def call_json(
                         on_progress()
                 message = stream.get_final_message()
         except anthropic.APIStatusError as exc:  # the SDK already retried 429/5xx
-            raise ModelError(f"The Claude API returned an error ({exc.status_code}).") from exc
+            log.warning("Claude API %s for %s: %s", exc.status_code, schema_name, exc.message)
+            raise ModelError(f"The Claude API rejected the request ({exc.status_code}): "
+                             f"{_api_detail(exc)}") from exc
         except anthropic.APIConnectionError as exc:
             raise ModelError("The Claude API could not be reached.") from exc
 

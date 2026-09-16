@@ -85,24 +85,28 @@ _STR = {"type": "string"}
 _SLIDES = {"type": "array", "items": {"type": "integer"}, "description": "1-based slide or section numbers."}
 _CLASSIFICATION = {"type": "string", "enum": ["FACT", "INFERENCE", "NOT PROVIDED"]}
 
-_SNAPSHOT = _obj(
-    {"value": {"type": ["string", "null"]},
-     "classification": _CLASSIFICATION,
-     "confidence": {"type": "number", "description": "0-1: 0.9+ stated verbatim, 0.3-0.59 inferred."},
-     "slides": _SLIDES,
-     "excerpt": {**_STR, "description": "Verbatim from the deck, at most 25 words."},
-     "amount_usd": {"type": ["integer", "null"], "description": "Currency values normalized to whole USD."}},
-    ["value", "classification", "confidence", "slides", "excerpt", "amount_usd"])
-
+# No nullable or union types anywhere: the API limits how many a schema may contain.
+# "Not stated" is an empty string or 0, which the models turn back into null.
 _SNAPSHOT_KEYS = ["name", "sector", "subsector", "stage", "geography", "revenue", "key_traction",
                   "raise_amount", "instrument", "valuation", "amount_committed", "lead_investor"]
 
+# One repeated shape rather than twelve named objects, and integers rather than floats: the
+# API compiles the schema into a grammar and rejects it when that grows too large.
+_SNAPSHOT_ITEM = _obj(
+    {"field": {"type": "string", "enum": _SNAPSHOT_KEYS},
+     "value": {**_STR, "description": "Empty string when the deck does not state it."},
+     "classification": _CLASSIFICATION,
+     "confidence": {"type": "integer", "description": "0-100: 90+ stated verbatim, 30-59 inferred."},
+     "slides": _SLIDES,
+     "excerpt": {**_STR, "description": "Verbatim from the deck, at most 25 words."},
+     "amount_usd": {"type": "integer", "description": "Currency in whole USD; 0 when not stated."}},
+    ["field", "value", "classification", "confidence", "slides", "excerpt", "amount_usd"])
+
 EXTRACTION_SCHEMA: dict[str, Any] = _obj(
     {
-        "company": _obj(
-            {**{key: _SNAPSHOT for key in _SNAPSHOT_KEYS},
-             "valuation_basis": {"type": "string", "enum": ["pre-money", "post-money", "not stated"]}},
-            [*_SNAPSHOT_KEYS, "valuation_basis"]),
+        "company": {"type": "array", "items": _SNAPSHOT_ITEM,
+                    "description": "One entry per field you can fill from the deck; omit the rest."},
+        "valuation_basis": {"type": "string", "enum": ["pre-money", "post-money", "not stated"]},
         "hard_criteria": {"type": "array", "items": _obj(
             {"criterion_id": _STR,
              "result": {"type": "string", "enum": ["MET", "NOT MET", "UNVERIFIED"]},
@@ -111,41 +115,35 @@ EXTRACTION_SCHEMA: dict[str, Any] = _obj(
             ["criterion_id", "result", "deck_evidence", "classification", "slides", "excerpt"])},
         "factors": {"type": "array", "items": _obj(
             {"factor_id": _STR,
-             "score": {"type": ["integer", "null"], "description": "1-5, or null when the evidence standard is not met."},
-             "rubric_level_matched": {"type": ["integer", "null"]},
+             "score": {"type": "integer", "description": "1-5, or 0 when the evidence standard is not met."},
+             "rubric_level_matched": {"type": "integer", "description": "1-5, or 0 when unscored."},
              "evidence_summary": _STR,
-             "evidence": {"type": "array", "items": _obj(
-                 {"quote": {**_STR, "description": "Verbatim, at most 25 words."},
-                  "slide": {"type": ["integer", "null"]},
-                  "evidence_type": {"type": "string", "enum": ["deck_statement", "financials", "cap_table",
-                                                               "customer_reference", "third_party_data", "legal_doc"]}},
-                 ["quote", "slide", "evidence_type"])},
+             "evidence": {"type": "array", "items": _STR,
+                          "description": 'One line each, as "S12 | deck_statement | verbatim quote of at most 25 '
+                                         'words". Evidence types: deck_statement, financials, cap_table, '
+                                         "customer_reference, third_party_data, legal_doc."},
              "evidence_standard_met": {"type": "boolean"},
              "gap": {**_STR, "description": "What is missing when the factor cannot be scored."}},
             ["factor_id", "score", "rubric_level_matched", "evidence_summary", "evidence",
              "evidence_standard_met", "gap"])},
-        "deal_breakers_triggered": {"type": "array", "items": _obj(
-            {"deal_breaker_id": _STR, "issue": _STR, "classification": _CLASSIFICATION,
-             "slides": _SLIDES, "excerpt": _STR, "resolution": _STR},
-            ["deal_breaker_id", "issue", "classification", "slides", "excerpt", "resolution"])},
-        "concerns": {"type": "array", "items": _obj(
-            {"factor_id": _STR, "severity": {"type": "string", "enum": ["HIGH", "MEDIUM", "LOW"]},
+        "findings": {"type": "array", "description": "Triggered deal-breakers and score-lowering concerns.",
+                     "items": _obj(
+            {"kind": {"type": "string", "enum": ["deal_breaker", "concern"]},
+             "id": {**_STR, "description": "The deal_breaker_id, or the factor_id a concern lowers."},
+             "severity": {"type": "string", "enum": ["DEAL-BREAKER", "HIGH", "MEDIUM", "LOW"]},
              "issue": _STR, "consequence": _STR, "resolution": _STR,
              "classification": _CLASSIFICATION, "slides": _SLIDES, "excerpt": _STR},
-            ["factor_id", "severity", "issue", "consequence", "resolution", "classification", "slides", "excerpt"])},
-        "bias_flags": {"type": "array", "items": _obj(
-            {"type": {"type": "string", "enum": ["Momentum", "Social proof", "Overconfidence"]},
-             "signal": _STR, "slides": _SLIDES, "affected_factor_id": {"type": ["string", "null"]}},
-            ["type", "signal", "slides", "affected_factor_id"])},
-        "evidence_requests": {"type": "array", "items": _obj(
-            {"request": _STR,
-             "audience": {"type": "string", "enum": ["Founder", "Investor", "Legal counsel",
-                                                     "Financial advisor", "Technical advisor"]},
-             "reason": _STR, "linked_to": {**_STR, "description": "The criterion_id, factor_id or concern it resolves."}},
-            ["request", "audience", "reason", "linked_to"])},
+            ["kind", "id", "severity", "issue", "consequence", "resolution", "classification", "slides", "excerpt"])},
+        "bias_flags": {"type": "array", "items": _STR,
+                       "description": 'One line each, as "Momentum | the signal in the deck | S4". '
+                                      "Types: Momentum, Social proof, Overconfidence."},
+        "evidence_requests": {"type": "array", "items": _STR,
+                              "description": 'One line each, as "Founder | what to request | why it matters | '
+                                             'the criterion_id or factor_id it resolves". Audiences: Founder, '
+                                             "Investor, Legal counsel, Financial advisor, Technical advisor."},
         "screening_summary": {**_STR, "description": "Analytical; never states a decision."},
         "thesis_fit": {**_STR, "description": "At most 160 characters."},
     },
-    ["company", "hard_criteria", "factors", "deal_breakers_triggered", "concerns", "bias_flags",
-     "evidence_requests", "screening_summary", "thesis_fit"],
+    ["company", "valuation_basis", "hard_criteria", "factors", "findings",
+     "bias_flags", "evidence_requests", "screening_summary", "thesis_fit"],
 )

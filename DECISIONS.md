@@ -3,6 +3,37 @@
 Design decisions taken where the build spec (`CLAUDE.md`) was silent, and places where the spec
 met reality. Newest first.
 
+## 2026-09-16 - Schemas reshaped to fit the API's grammar limit
+
+**The 400.** Building a pack failed with "The Claude API returned an error (400)", which hid the
+API's own explanation. Three faults, found by probing (rejected requests are free):
+
+1. `output_config.format.name` is not a permitted key.
+2. The screening schema had 28 nullable parameters; the limit is 16.
+3. Both schemas compiled to an over-large grammar.
+
+**What the limit actually charges for** (probed on `claude-opus-5`): arrays of objects - 6 were
+accepted, 10 rejected. Forty strings, forty integers, ten enums and arrays of strings were all
+fine; a single float tipped a borderline schema over.
+
+**Decisions**
+
+1. **The schemas are flat by design**, and the richer shape is rebuilt in pydantic
+   `mode="before"` validators: the snapshot is one repeated `{field, ...}` shape, deal-breakers
+   and concerns share one `findings` list, rubric levels are `rubric_1..rubric_5`, and evidence,
+   bias flags and requests are `"a | b | c"` strings.
+2. **No nullable types**: `""` and `0` mean "not stated", converted back to `None` on the way in.
+3. **Integers, not floats**: the advance threshold crosses the wire in tenths (35 = 3.5), and
+   confidence as 0-100.
+4. **The API's message is now surfaced** in `ModelError` and logged, so the next rejection says
+   what was wrong instead of just its status code.
+5. **`tests/test_schemas.py` guards the budget offline** so a schema change fails a test rather
+   than a deploy.
+
+**Verified against the real API:** a pack built in 79s (8 factors summing to 100, 228-word
+thesis, 11 open questions on a placeholder profile - the model asked rather than inventing), and
+a screening returned HOLD in 17s on a contentless deck.
+
 ## 2026-09-16 - Result emails built
 
 **What shipped.** `src/icb/mail/` (Resend over stdlib HTTP, plus the per-trigger content), wired
