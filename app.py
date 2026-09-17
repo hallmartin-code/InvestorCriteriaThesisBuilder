@@ -262,11 +262,26 @@ async def profile_put(slug: str, request: Request) -> dict[str, object]:
         raise store.InvalidInput("The profile ID in the document does not match the investor being saved.")
     result = validate.normalize(document, store.note_files(slug))
     saved_at = store.now_iso()
+    existing = store.read_profile(slug) or {}
+    clarifications = ([c.model_dump(mode="json") for c in document.clarifications]
+                      if document.clarifications else existing.get("clarifications") or [])
     store.write_profile(slug, {
         "schema_version": 1, "slug": slug, "display_name": document.display_name,
-        "updated_at": saved_at, "fields": result["fields"],
+        "updated_at": saved_at, "fields": result["fields"], "clarifications": clarifications,
     })
     return {"saved_at": saved_at, "questions": result["questions"], "issues": result["issues"]}
+
+
+@app.post("/api/investors/{slug}/clarifications")
+async def save_clarifications(slug: str, request: Request) -> dict[str, Any]:
+    """Answers to the questions the Criteria Pack builder asked; the next build reads them."""
+    store.investor_path(slug)
+    payload = await json_body(request, MAX_PROFILE_BYTES)
+    answers = payload.get("answers") if isinstance(payload, dict) else None
+    if not isinstance(answers, list):
+        raise store.InvalidInput('Send the answers as {"answers": [{"question": ..., "answer": ...}]}.')
+    saved = store.save_clarifications(slug, [entry for entry in answers if isinstance(entry, dict)])
+    return {"clarifications": saved, "answered": sum(1 for entry in saved if entry.get("answer"))}
 
 
 @app.post("/api/investors/{slug}/profile/notes")

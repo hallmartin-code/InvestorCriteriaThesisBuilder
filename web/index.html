@@ -1156,6 +1156,7 @@
         <div id="pack-summary" hidden></div>
         <div class="btn-row">
           <button class="cta" type="button" id="pack-build" style="flex:1 1 220px">Build Criteria Pack</button>
+          <button class="btn" type="button" id="pack-answer-save" hidden>Save answers &amp; rebuild</button>
           <button class="btn" type="button" id="pack-approve" hidden>Approve pack</button>
         </div>
         <div class="status" id="pack-status" hidden></div>
@@ -1211,7 +1212,8 @@
     route: "screen",        // which tab is showing: "screen" or "criteria"
     screenView: "upload",   // the screening flow's current view, kept while on the criteria tab
     criteriaSlug: null,     // slug of the saved investor being edited; null for a new one
-    criteriaDirty: false
+    criteriaDirty: false,
+    clarifications: {}      // question -> the investor's answer, from the saved profile
   };
 
   // ── helpers ──────────────────────────────────────────────────
@@ -2082,6 +2084,8 @@
 
   function applyProfile(profile) {
     resetCriteriaForm();
+    state.clarifications = Object.fromEntries(
+      ((profile && profile.clarifications) || []).map((item) => [item.question, item.answer]));
     if (!profile) return;
     $("c-name").value = profile.display_name || "";
     const fields = profile.fields || {};
@@ -2226,6 +2230,7 @@
     box.textContent = "";
     box.hidden = !summary;
     approve.hidden = true;
+    $("pack-answer-save").hidden = true;
     build.textContent = summary ? "Rebuild Criteria Pack" : "Build Criteria Pack";
     build.disabled = !state.criteriaSlug;
     $("pack-state").textContent = summary ? `v${summary.version} · ${summary.status}` : "Not built";
@@ -2244,25 +2249,103 @@
     line("Thesis", `${summary.thesis_words} words`);
 
     if (summary.open_questions.length) {
+      const answers = state.clarifications || {};
+      const answered = summary.open_questions.filter((question) => answers[question]).length;
       const heading = document.createElement("p");
       heading.className = "hint";
-      heading.textContent = `${summary.open_questions.length} question${summary.open_questions.length === 1 ? "" : "s"} must be answered before this pack can be approved:`;
-      const list = document.createElement("ol");
-      summary.open_questions.forEach((question) => {
-        const li = document.createElement("li");
-        li.textContent = question;
-        list.append(li);
+      heading.textContent = `${summary.open_questions.length} question${summary.open_questions.length === 1 ? "" : "s"} must be answered before this pack can be approved`
+        + (answered ? ` · ${answered} already answered below` : "") + ":";
+      box.append(heading);
+
+      const list = document.createElement("div");
+      list.className = "repeat";
+      summary.open_questions.forEach((question, index) => {
+        const row = document.createElement("div");
+        row.className = "repeat-row";
+        const head = document.createElement("div");
+        head.className = "row-head";
+        const title = document.createElement("span");
+        title.className = "row-title";
+        title.textContent = `Question ${index + 1}`;
+        head.append(title);
+        const text = document.createElement("p");
+        text.style.margin = "0 0 8px";
+        text.textContent = question;                       // textContent: never HTML
+        const field = document.createElement("textarea");
+        field.dataset.question = question;
+        field.value = answers[question] || "";
+        field.setAttribute("aria-label", question);
+        row.append(head, text, field);
+        list.append(row);
       });
-      list.className = "hint";
-      box.append(heading, list);
+      box.append(list);
+
+      const note = document.createElement("p");
+      note.className = "hint";
+      note.textContent = "Answers are saved to this investor and used by the next build. Leave one empty to skip it.";
+      box.append(note);
+      $("pack-answer-save").hidden = false;
     } else if (summary.status === "draft") {
       approve.hidden = false;
+      $("pack-answer-save").hidden = true;
     }
   }
 
+  function collectAnswers() {
+    return $$("#pack-summary textarea[data-question]").map((field) => ({
+      question: field.dataset.question, answer: field.value.trim(),
+    }));
+  }
+
+  async function saveAnswersAndRebuild() {
+    if (!state.criteriaSlug) {
+      setPackStatus("warn", "Save the investor's criteria first.");
+      return;
+    }
+    const answers = collectAnswers();
+    if (!answers.some((entry) => entry.answer)) {
+      setPackStatus("warn", "Answer at least one question, then save.");
+      return;
+    }
+    if (cfg.preview) {
+      setPackStatus("warn", "Preview mode: answers are saved by the server.");
+      return;
+    }
+    const button = $("pack-answer-save");
+    button.disabled = true;
+    try {
+      const body = await api(`/api/investors/${encodeURIComponent(state.criteriaSlug)}/clarifications`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answers }),
+      });
+      state.clarifications = Object.fromEntries(
+        (body.clarifications || []).map((item) => [item.question, item.answer]));
+      setPackStatus("ok", `${body.answered} answer${body.answered === 1 ? "" : "s"} saved. Rebuilding the pack…`);
+      await buildPack();
+    } catch (err) {
+      setPackStatus("error", err.message);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  const PREVIEW_PACK = {
+    version: 1, status: "draft", hash: "0a1b2c3d4e5f6a7b", advance_threshold: 3.5,
+    max_unscored_weight_pct: 30, deal_breakers: 2, thesis_words: 214,
+    factors: [{ label: "Team", weight: 25, floor: 3 }, { label: "Market", weight: 20 },
+              { label: "Traction", weight: 20 }, { label: "Unit economics", weight: 15 },
+              { label: "Entry price", weight: 10 }, { label: "Exit path", weight: 10 }],
+    hard_criteria: [{ label: "Stage", requirement: "Seed" }, { label: "Instrument", requirement: "Note or equity" }],
+    not_applied: ["ownership target"],
+    open_questions: [
+      "Which single return target governs: a 5.0x multiple, a 20% IRR, or 50% growth over 5 years?",
+      "Which constraint is fixed: the ownership target, the check band, or the round band? At those round sizes they cannot all hold.",
+    ],
+  };
+
   async function loadPack(slug) {
     renderPack(null);
-    if (!slug || cfg.preview) return;
+    if (cfg.preview) { renderPack(PREVIEW_PACK); return; }
+    if (!slug) return;
     for (const status of ["approved", "draft"]) {
       try {
         const body = await api(`/api/investors/${encodeURIComponent(slug)}/criteria/${status}`);
@@ -2338,6 +2421,7 @@
 
   $("pack-build").addEventListener("click", buildPack);
   $("pack-approve").addEventListener("click", approvePack);
+  $("pack-answer-save").addEventListener("click", saveAnswersAndRebuild);
 
   // criteria events
   const criteriaForm = $("criteria-form");

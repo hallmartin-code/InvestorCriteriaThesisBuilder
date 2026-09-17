@@ -223,7 +223,11 @@ class CriteriaDraft(_Strict):
         return self
 
     def blocking_questions(self) -> list[str]:
-        """Everything that must be answered before the investor can approve this pack."""
+        """Everything that must be answered before the investor can approve this pack.
+
+        Near-duplicates are collapsed: the same question sometimes arrives both on an element
+        and in `open_questions`.
+        """
         questions = list(self.open_questions)
         elements: list[tuple[str, Grounded]] = [("thesis", self.thesis), ("review cadence", self.review_cadence)]
         elements += [(f"hard criterion '{c.label}'", c) for c in self.hard_criteria]
@@ -233,7 +237,7 @@ class CriteriaDraft(_Strict):
         for where, element in elements:
             if element.needs_input:
                 questions.append(f"{where}: {element.needs_input}")
-        return questions
+        return _deduplicate(questions)
 
 
 class CriteriaPack(_Strict):
@@ -282,6 +286,34 @@ class CriteriaPack(_Strict):
             "not_applied": self.draft.not_applied,
             "thesis_words": self.draft.thesis.word_count,
         }
+
+
+def _key(question: str) -> frozenset[str]:
+    """Content words, so two wordings of one question collapse into a single entry.
+
+    The "factor 'Team': " prefix is dropped first; the question itself may contain colons.
+    """
+    text = re.sub(r"^[^:']{0,40}'[^']{0,80}':\s*", "", question).lower()
+    words = re.findall(r"[a-z0-9$%.]+", text)
+    return frozenset(word for word in words if len(word) > 3)
+
+
+SIMILARITY = 0.3
+"""Measured on a real 17-question draft: rewordings of one question scored 0.39-0.74, while the
+closest genuinely different pair scored 0.09."""
+
+
+def _deduplicate(questions: list[str]) -> list[str]:
+    """Keep the first wording; drop later ones that ask substantially the same thing."""
+    kept: list[str] = []
+    keys: list[frozenset[str]] = []
+    for question in questions:
+        key = _key(question)
+        if any(key and other and len(key & other) / len(key | other) >= SIMILARITY for other in keys):
+            continue
+        kept.append(question)
+        keys.append(key)
+    return kept
 
 
 def now_iso() -> str:

@@ -254,6 +254,30 @@ def approved_pack_summary(path: Path) -> dict[str, Any] | None:
     return {"version": version, "hash": pack.get("content_hash", ""), "approved_at": pack.get("approved_at")}
 
 
+def save_clarifications(slug: str, answers: list[dict[str, str]]) -> list[dict[str, Any]]:
+    """Merge answers to the builder's questions into the profile; re-answering replaces the old text."""
+    profile = read_profile(slug)
+    if not profile:
+        raise InvalidInput("Save the investor's criteria before answering the pack's questions.")
+    existing = {str(item.get("question", "")): dict(item) for item in profile.get("clarifications") or []}
+    for entry in answers:
+        question = str(entry.get("question") or "").strip()
+        answer = str(entry.get("answer") or "").strip()
+        if not question:
+            continue
+        if not answer:
+            existing.pop(question, None)  # clearing an answer removes it
+            continue
+        if len(question) > 1000 or len(answer) > 5000:
+            raise InvalidInput("An answer is too long to save.")
+        existing[question] = {"question": question, "answer": answer,
+                              "answered_at": now_iso(), "source": "intake"}
+    profile["clarifications"] = list(existing.values())
+    profile["updated_at"] = now_iso()
+    write_profile(slug, profile)
+    return profile["clarifications"]
+
+
 def write_scorecard(slug: str, stem: str, pdf: bytes, payload: dict[str, Any]) -> dict[str, str]:
     """Store one screening's artifacts; returns their paths."""
     directory = investor_path(slug) / "scorecards"

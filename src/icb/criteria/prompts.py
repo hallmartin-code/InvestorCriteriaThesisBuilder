@@ -19,8 +19,17 @@ Rules:
   field paths in `grounded_in`.
 - Where a required input is missing, ambiguous, or contradictory (for example, a check
   size that cannot reach the ownership target at the stated round sizes), do not resolve it
-  yourself. Set `needs_input` to one specific question the investor can answer, and add it
-  to `open_questions`.
+  yourself. Ask one specific question the investor can answer: set `needs_input` on the
+  element it blocks, or put it in `open_questions` when it blocks no single element. Never
+  put the same question in both, and never ask two versions of one question.
+- Some questions may already be answered below under ANSWERS TO EARLIER QUESTIONS. Treat
+  those answers as the investor's own input: use them, ground elements in them, and do not
+  ask them again.
+- Ask only what blocks applying the pack to a deck: a criterion that cannot be tested, a
+  rubric level that cannot be judged, or a contradiction between inputs. Do not ask for finer
+  calibration of something the investor has already settled - choose a reasonable working
+  value, state it in the element, and record the choice in `grounded_in`. At most five
+  questions, fewer when the inputs support it.
 - Fields marked `no_preference` produce no criterion. List them in `not_applied`.
 - Rubric levels must describe observable evidence a reviewer could verify in documents,
   not qualitative adjectives. Level 1 and level 5 must be clearly distinguishable by
@@ -57,15 +66,30 @@ def render_profile(profile: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_clarifications(profile: dict[str, Any]) -> str:
+    """Answers the investor gave to questions an earlier draft asked."""
+    answered = [item for item in (profile.get("clarifications") or []) if item.get("answer")]
+    if not answered:
+        return ""
+    lines = ["ANSWERS TO EARLIER QUESTIONS", ""]
+    for item in answered:
+        lines += [f"Q: {item['question']}", f"A: {item['answer']}", ""]
+    return "\n".join(lines)
+
+
 def build_content(profile: dict[str, Any], notes: list[tuple[str, str]]) -> list[dict[str, Any]]:
-    """One user message: the profile, then any thesis materials, then the task."""
+    """One user message: the profile, the answers it already gave, the materials, then the task."""
     blocks = [{"type": "text", "text": render_profile(profile)}]
+    clarifications = render_clarifications(profile)
+    if clarifications:
+        blocks.append({"type": "text", "text": clarifications})
     for name, text in notes:
         body = text.strip()[:NOTE_CHAR_LIMIT]
         if body:
             blocks.append({"type": "text", "text": f"--- THESIS NOTES: {name} ---\n{body}"})
     blocks.append({"type": "text", "text":
                    "Produce the Criteria Pack for this investor. Cite the profile field path in "
-                   "`grounded_in` for every element, and use `needs_input` plus `open_questions` "
-                   "wherever the inputs do not settle the question."})
+                   "`grounded_in` for every element. Where the inputs and the answers above do not "
+                   "settle a question, ask it once: on the element it blocks, or in `open_questions` "
+                   "when it blocks no single element."})
     return blocks

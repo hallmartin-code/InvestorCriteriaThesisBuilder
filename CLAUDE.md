@@ -223,6 +223,12 @@ thesis notes, makes one structured-output call, and writes `vN.draft.json` + `vN
    implements these; the pack states them in the investor's terms.
 7. **Screening Scorecard Template**: rendered as a blank version of the §9 one-pager by the
    same renderer (`icb criteria template <slug>`; `templates/one_pager.md` §4.10).
+**Questions are asked once.** A question goes on the element it blocks *or* in
+`open_questions`, never both, and `blocking_questions()` collapses near-duplicate wordings
+(Jaccard ≥ 0.3 over content words; measured against a real 17-question draft where rewordings
+scored 0.39-0.74 and distinct questions 0.09). Answers the investor has already given are sent
+back to the builder and must not be re-asked.
+
 8. **Review Cadence**: review triggers (calendar interval and/or N screened deals), the
    minimum sample size before changing a weight, which outcome data is reviewed, and how
    changes are versioned.
@@ -522,8 +528,12 @@ otherwise.
    - "Build draft" runs as a job.
    - The draft shows thesis, hard criteria, weights with rationales, rubrics, deal-breakers,
      concerns, evidence standard, and review cadence.
-   - Open questions and `needs_input` items are shown inline with answer boxes. Answering
-     updates the profile and re-runs the build.
+   - Every blocking question gets an answer box. **Saving posts to
+     `POST …/clarifications`, which stores the answers on the profile as `clarifications`,
+     and then rebuilds.** The builder reads them back under ANSWERS TO EARLIER QUESTIONS and
+     must not ask them again.
+   - The same question often arrives twice, on the element and at the top.
+     `blocking_questions()` collapses near-duplicates (see §7).
    - "Approve" stays disabled while any remain, and requires an explicit confirmation
      checkbox.
    - Downloads: pack PDF, blank scorecard template.
@@ -606,6 +616,7 @@ Keep its tokens, components, and copy tone. Wire it to the API; don't restyle it
 | GET/POST | `/api/investors` | List returns `[{slug, name, approved_pack, inputs_complete, open_questions}]`; `approved_pack` is `null` until Phase 2. Create takes `{slug, name}` and returns 201, or 409 if the slug exists |
 | GET/PUT | `/api/investors/{slug}/profile` | The profile document from Screens 2. PUT validates server-side and returns `{saved_at, questions: [{field, question}], issues: [...]}`. GET before any save returns an empty document with the investor's name |
 | POST | `/api/investors/{slug}/profile/notes` | Multipart `files` (.pdf/.docx/.md/.txt) for thesis notes |
+| POST | `/api/investors/{slug}/clarifications` | JSON `{answers: [{question, answer}]}`; merges into the profile, an empty answer clears one |
 | POST | `/api/investors/{slug}/criteria/build` | Returns `{job_id}` |
 | GET/PUT | `/api/investors/{slug}/criteria/draft` | Review / answer open questions |
 | POST | `/api/investors/{slug}/criteria/approve` | 409 while open questions remain |
@@ -743,6 +754,10 @@ is always operator-configured.
 Reuse the structure of `../deckpager/src/deckpager/mailer.py`: a stdlib `urllib` POST to
 `https://api.resend.com/emails`, with `build_html`, `build_text`, `build_payload`, and `send`
 returning an `EmailOutcome`.
+
+**Send a real `User-Agent` header.** Resend is behind Cloudflare, which blocks Python's default
+`Python-urllib/3.x` with 403 error code 1010 (found 2026-09-17). Report a 403 with Resend's own
+response; only a 401 means the key was rejected.
 
 ### Configuration
 

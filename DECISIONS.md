@@ -3,6 +3,47 @@
 Design decisions taken where the build spec (`CLAUDE.md`) was silent, and places where the spec
 met reality. Newest first.
 
+## 2026-09-17 - Result emails were blocked by Cloudflare, not by the key
+
+**Symptom.** Every result email failed with "Resend rejected the API key", while the same key
+worked from curl and from `GET /domains`.
+
+**Cause.** Resend is behind Cloudflare, which answers Python's default `Python-urllib/3.x`
+user-agent with **403 error code 1010**. Our own error mapping then reported any 403 as a bad
+key, which hid it.
+
+**Fix**
+
+1. `mailer.USER_AGENT = "icb/1.0 (TEN Capital Network)"` is sent on every request. Verified:
+   the identical payload returns 403 with the default agent and 200 with a real one.
+2. A 403 now reports Resend's own response; only a 401 is called a rejected key.
+3. `tests/test_mailer.py` asserts the user-agent is sent and that a 1010 block is reported as
+   itself.
+
+**Worth checking elsewhere:** `../deckpager` and `../ConvictionLadder` send through Resend with
+stdlib urllib too, so their result emails may be failing the same way.
+
+## 2026-09-17 - Answering the pack's questions in the app
+
+**What happened.** A real build for a CPG angel came back with 17 blocking questions, and the
+page had nowhere to answer them. Two faults: the prompt told the model to record each question
+in `needs_input` *and* `open_questions`, so most were listed twice; and answers had no home.
+
+**Decisions**
+
+1. **Answers are investor input**, stored on the profile as `clarifications`
+   (`POST /api/investors/{slug}/clarifications`), not as a side file. Re-answering replaces;
+   clearing removes. Saving them never disturbs the form's fields.
+2. **The builder reads them back** under ANSWERS TO EARLIER QUESTIONS, and is told to use them
+   and not ask again.
+3. **Ask once**: the prompt now says a question belongs on its element *or* in
+   `open_questions`, never both.
+4. **Near-duplicates collapse** in `blocking_questions()` at a 0.3 Jaccard threshold over
+   content words. On the real 17 questions this leaves exactly the 9 distinct ones; the closest
+   genuinely different pair scored 0.09, so the margin is wide.
+5. **The UI** renders each question with its own box, pre-filled from saved answers, and one
+   "Save answers & rebuild" button.
+
 ## 2026-09-16 - Schemas reshaped to fit the API's grammar limit
 
 **The 400.** Building a pack failed with "The Claude API returned an error (400)", which hid the

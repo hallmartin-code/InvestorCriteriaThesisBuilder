@@ -22,6 +22,9 @@ from typing import Any
 log = logging.getLogger("icb.mail")
 
 RESEND_ENDPOINT = "https://api.resend.com/emails"
+# Resend sits behind Cloudflare, which blocks Python's default "Python-urllib/3.x" agent with
+# 403 error code 1010. Any real user-agent passes.
+USER_AGENT = "icb/1.0 (TEN Capital Network)"
 TIMEOUT_S = 15
 MAX_ATTEMPTS = 3
 MIN_INTERVAL_S = 0.5  # Resend allows 2 requests per second
@@ -99,6 +102,7 @@ def send(
     headers = {
         "Authorization": f"Bearer {os.getenv('RESEND_API_KEY')}",
         "Content-Type": "application/json",
+        "User-Agent": USER_AGENT,
     }
     if key:
         headers["Idempotency-Key"] = key
@@ -136,12 +140,19 @@ def send(
 
 
 def _readable(exc: urllib.error.HTTPError) -> str:
+    body = ""
     try:
-        detail = json.loads(exc.read().decode("utf-8") or "{}").get("message")
-    except (ValueError, OSError):
-        detail = None
-    if exc.code in (401, 403):
+        body = exc.read().decode("utf-8", "replace")[:300].strip()
+    except OSError:
+        body = ""
+    try:
+        detail = json.loads(body or "{}").get("message")
+    except ValueError:
+        detail = body or None  # Cloudflare answers with HTML or "error code: 1010", not JSON
+    if exc.code == 401:
         return "Resend rejected the API key."
+    if exc.code == 403:
+        return f"Resend refused the request (403): {detail or 'no detail given'}"
     if exc.code == 422 and detail:
         return f"Resend rejected the message: {detail}"
     return f"Resend returned {exc.code}." + (f" {detail}" if detail else "")

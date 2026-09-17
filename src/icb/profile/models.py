@@ -106,12 +106,22 @@ class FieldEntry(_Strict):
     affirmed_none: bool | None = None
 
 
+class Clarification(_Strict):
+    """An answer to a question the Criteria Pack builder asked (§7). Part of the investor's inputs."""
+
+    question: Annotated[str, Field(max_length=1_000)]
+    answer: Annotated[str, Field(max_length=5_000)] = ""
+    answered_at: str = ""
+    source: Short = "intake"
+
+
 class ProfileDocument(_Strict):
     schema_version: Literal[1] = 1
     slug: Annotated[str, Field(pattern=SLUG_PATTERN)]
     display_name: Annotated[str, Field(min_length=1, max_length=120)]
     updated_at: datetime | None = None
     fields: dict[str, FieldEntry] = {}
+    clarifications: Annotated[list[Clarification], Field(max_length=100)] = []
 
     @field_validator("display_name")
     @classmethod

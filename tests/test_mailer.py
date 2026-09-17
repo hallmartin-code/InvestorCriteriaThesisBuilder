@@ -68,6 +68,26 @@ def test_a_sent_email_uses_only_the_configured_recipient(configured, sent):
     assert sent[0]["headers"]["Idempotency-key"] == "abc123"
 
 
+def test_a_real_user_agent_is_sent(configured, sent):
+    """Resend is behind Cloudflare, which answers Python's default agent with 403 code 1010."""
+    mailer.send(subject="s", html="<p>h</p>", text="t")
+    agent = sent[0]["headers"]["User-agent"]
+    assert agent == mailer.USER_AGENT and "urllib" not in agent.lower()
+
+
+def test_a_cloudflare_block_is_reported_as_itself_not_as_a_bad_key(configured, monkeypatch):
+    monkeypatch.setattr(mailer.time, "sleep", lambda _seconds: None)
+
+    def blocked(request, timeout=None):
+        raise urllib.error.HTTPError("u", 403, "Forbidden", {}, io.BytesIO(b"error code: 1010"))
+
+    monkeypatch.setattr(mailer.urllib.request, "urlopen", blocked)
+    outcome = mailer.send(subject="s", html="<p>h</p>", text="t")
+    assert outcome.status == "failed"
+    assert "403" in outcome.reason and "1010" in outcome.reason
+    assert "API key" not in outcome.reason
+
+
 def test_oversize_attachments_drop_the_json_first(configured, sent):
     outcome = mailer.send(subject="s", html="<p>h</p>", text="t",
                           attachments=[("scorecard.pdf", b"x" * (10 * 1024 * 1024)),
